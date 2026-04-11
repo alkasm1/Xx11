@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>ALM Book2Image v1.0 – تحويل النص/الكتاب إلى صورة</title>
+<title>ALM GeoFreq v2.0 – Text to Points</title>
 
 <style>
 body {
@@ -64,34 +64,28 @@ textarea, input[type="file"], input[type="text"] {
 
 <body>
 
-<header>ALM Book2Image v1.0 – تحويل النص/الكتاب إلى صورة</header>
+<header>ALM GeoFreq v2.0 – Text ↔ Points</header>
 
 <div class="container">
 
   <h3>1) مفتاح المستخدم (32‑بت – ثماني خانات هكس)</h3>
   <input id="userKey" type="text" value="A1B2C3D4" placeholder="مثال: A1B2C3D4">
 
-  <h3>2) إدخال نص أو رفع ملف كتاب (TXT حاليًا)</h3>
-  <textarea id="inputText" rows="8" placeholder="اكتب نصًا أو الصق محتوى كتاب هنا..."></textarea>
+  <h3>2) إدخال نص</h3>
+  <textarea id="inputText" rows="8" placeholder="اكتب نصًا هنا..."></textarea>
 
-  <h4>أو رفع ملف نصي (.txt):</h4>
-  <input type="file" id="textFileInput" accept=".txt">
-
-  <button onclick="loadTextFile()">قراءة الملف النصي</button>
-
-  <h3>3) تحويل النص إلى صورة كتاب</h3>
-  <button onclick="encodeTextToImage()">تحويل النص إلى صورة</button>
+  <button onclick="encodeGeoFreq()">تحويل النص إلى صورة نقاط</button>
 
   <div id="canvasWrapper">
-    <canvas id="bookCanvas"></canvas>
-    <button onclick="saveImage()">💾 حفظ الصورة (PNG)</button>
+    <canvas id="geoCanvas"></canvas>
+    <button onclick="saveImage()">💾 حفظ الصورة</button>
   </div>
 
   <hr>
 
-  <h3>4) استعادة النص/الكتاب من صورة</h3>
+  <h3>3) استعادة النص من صورة</h3>
   <input type="file" id="imageInput" accept="image/png">
-  <button onclick="decodeImageToText()">استعادة النص من الصورة</button>
+  <button onclick="decodeGeoFreq()">استعادة النص</button>
 
   <h4>النص المستعاد:</h4>
   <div id="outputText"></div>
@@ -99,221 +93,122 @@ textarea, input[type="file"], input[type="text"] {
 </div>
 
 <script>
-/* ===================== قراءة ملف TXT ===================== */
-function loadTextFile() {
-  const file = document.getElementById("textFileInput").files[0];
-  if (!file) {
-    alert("الرجاء اختيار ملف نصي (.txt) أولاً.");
-    return;
+/* ===================== Hash Function ===================== */
+function hashWord(word) {
+  let h = 0;
+  for (let i = 0; i < word.length; i++) {
+    h = (h * 31 + word.charCodeAt(i)) >>> 0;
   }
-  const reader = new FileReader();
-  reader.onload = () => {
-    document.getElementById("inputText").value = reader.result;
-  };
-  reader.readAsText(file, "utf-8");
+  return h >>> 0;
 }
 
-/* ===================== CRC32 ===================== */
-function crc32(bytes) {
-  let crc = ~0;
-  for (let i = 0; i < bytes.length; i++) {
-    crc ^= bytes[i];
-    for (let j = 0; j < 8; j++) {
-      crc = (crc >>> 1) ^ (0xEDB88320 & -(crc & 1));
-    }
-  }
-  return (~crc) >>> 0;
-}
-
-/* ===================== UTF-8 ===================== */
-function textToBytes(str) {
-  return Array.from(new TextEncoder().encode(str));
-}
-function bytesToText(bytes) {
-  return new TextDecoder().decode(new Uint8Array(bytes));
-}
-
-/* ===================== 32-bit helpers ===================== */
-function intToBytes32(n) {
-  return [
-    (n >>> 24) & 0xFF,
-    (n >>> 16) & 0xFF,
-    (n >>> 8) & 0xFF,
-    n & 0xFF
-  ];
-}
-function bytesToInt32(b0, b1, b2, b3) {
-  return ((b0 << 24) >>> 0) | (b1 << 16) | (b2 << 8) | b3;
-}
-
-/* ===================== Key (32-bit) ===================== */
+/* ===================== Key Parsing ===================== */
 function parseKey32(hexStr) {
   hexStr = hexStr.replace(/[^0-9A-Fa-f]/g, "");
   if (hexStr.length !== 8) return 0xA1B2C3D4;
   return parseInt(hexStr, 16) >>> 0;
 }
 
-function xorBytesWithKey(bytes, key32) {
-  const k0 = (key32 >>> 24) & 0xFF;
-  const k1 = (key32 >>> 16) & 0xFF;
-  const k2 = (key32 >>> 8) & 0xFF;
-  const k3 = key32 & 0xFF;
-  const out = [];
-  for (let i = 0; i < bytes.length; i++) {
-    const k = [k0, k1, k2, k3][i % 4];
-    out.push(bytes[i] ^ k);
-  }
-  return out;
+/* ===================== Auto Size ===================== */
+function chooseSize(nWords) {
+  if (nWords <= 50000) return 512;
+  if (nWords <= 200000) return 1024;
+  if (nWords <= 1000000) return 2048;
+  return 4096;
 }
 
-/* ===================== تحويل النص إلى صورة ===================== */
-function encodeTextToImage() {
-  const keyHex = document.getElementById("userKey").value;
-  const key32 = parseKey32(keyHex);
-
-  let text = document.getElementById("inputText").value;
-  if (!text.trim()) {
-    alert("الرجاء إدخال نص أو تحميل ملف أولاً.");
+/* ===================== Encode ===================== */
+function encodeGeoFreq() {
+  const key = parseKey32(document.getElementById("userKey").value);
+  let text = document.getElementById("inputText").value.trim();
+  if (!text) {
+    alert("الرجاء إدخال نص.");
     return;
   }
 
-  // 1) نص → بايتات
-  let plainBytes = textToBytes(text);
+  let words = text.split(/\s+/);
+  let n = words.length;
 
-  // 2) XOR بالمفتاح
-  let encryptedBytes = xorBytesWithKey(plainBytes, key32);
+  let size = chooseSize(n);
+  let canvas = document.getElementById("geoCanvas");
+  canvas.width = size;
+  canvas.height = size;
 
-  // 3) بايتات مشفرة → Base64
-  let binStr = String.fromCharCode.apply(null, encryptedBytes);
-  let base64 = btoa(binStr);
+  let ctx = canvas.getContext("2d");
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, size, size);
 
-  // 4) Base64 → بايتات ASCII
-  let base64Bytes = textToBytes(base64);
+  ctx.fillStyle = "black";
 
-  // 5) Header + CRC
-  const length = base64Bytes.length;
-  const crc = crc32(base64Bytes);
+  for (let i = 0; i < n; i++) {
+    let freq = hashWord(words[i]);
+    let combined = ((i >>> 0) * 0x100000000 + freq) >>> 0; // 64-bit simulated
+    let secure = (combined ^ key) >>> 0;
 
-  const header = intToBytes32(length).concat(intToBytes32(length));
-  const crcBytes = intToBytes32(crc);
+    let X = secure % size;
+    let Y = Math.floor(secure / size);
 
-  let allBytes = header.concat(crcBytes, base64Bytes);
-
-  // 6) Padding إلى مضاعفات 3
-  while (allBytes.length % 3 !== 0) allBytes.push(0);
-
-  // 7) بايتات → بكسلات
-  const bytesPerPixel = 3;
-  const totalPixels = allBytes.length / bytesPerPixel;
-
-  const width = 256; // يمكن تكبيرها لاحقًا للكتب الكبيرة
-  const height = Math.ceil(totalPixels / width);
-
-  const canvas = document.getElementById("bookCanvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-
-  const imageData = ctx.createImageData(width, height);
-  const px = imageData.data;
-
-  let bi = 0;
-  for (let i = 0; i < totalPixels; i++) {
-    const p = i * 4;
-    px[p]     = allBytes[bi++] || 0;
-    px[p + 1] = allBytes[bi++] || 0;
-    px[p + 2] = allBytes[bi++] || 0;
-    px[p + 3] = 255;
+    if (Y < size) {
+      ctx.fillRect(X, Y, 1, 1);
+    }
   }
 
-  ctx.putImageData(imageData, 0, 0);
-
-  alert("📚 تم تحويل النص/الكتاب إلى صورة بنجاح!");
+  alert("✔ تم تحويل النص إلى صورة نقاط بنجاح!");
 }
 
-/* ===================== حفظ الصورة ===================== */
+/* ===================== Save Image ===================== */
 function saveImage() {
-  const canvas = document.getElementById("bookCanvas");
-  if (!canvas.width || !canvas.height) {
-    alert("لا توجد صورة لحفظها.");
-    return;
-  }
+  const canvas = document.getElementById("geoCanvas");
   const url = canvas.toDataURL("image/png");
   const a = document.createElement("a");
   a.href = url;
-  a.download = "alm-bookimage.png";
+  a.download = "alm-geofreq.png";
   a.click();
 }
 
-/* ===================== استعادة النص من صورة ===================== */
-function decodeImageToText() {
+/* ===================== Decode ===================== */
+function decodeGeoFreq() {
   const file = document.getElementById("imageInput").files[0];
   if (!file) {
-    alert("الرجاء اختيار صورة PNG أولاً.");
+    alert("الرجاء اختيار صورة.");
     return;
   }
 
-  const keyHex = document.getElementById("userKey").value;
-  const key32 = parseKey32(keyHex);
+  const key = parseKey32(document.getElementById("userKey").value);
 
   const img = new Image();
   img.onload = () => {
-    const canvas = document.getElementById("bookCanvas");
-    const ctx = canvas.getContext("2d");
+    let canvas = document.getElementById("geoCanvas");
+    let ctx = canvas.getContext("2d");
 
     canvas.width = img.width;
     canvas.height = img.height;
     ctx.drawImage(img, 0, 0);
 
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 
-    const bytes = [];
-    for (let i = 0; i < data.length; i += 4) {
-      bytes.push(data[i], data[i+1], data[i+2]);
+    let points = [];
+
+    for (let y = 0; y < canvas.height; y++) {
+      for (let x = 0; x < canvas.width; x++) {
+        let i = (y * canvas.width + x) * 4;
+        if (data[i] < 128) { // black pixel
+          let secure = y * canvas.width + x;
+          let combined = secure ^ key;
+
+          let order = combined >>> 32;
+          let freq = combined & 0xFFFFFFFF;
+
+          points.push({ order, freq });
+        }
+      }
     }
 
-    const len1 = bytesToInt32(bytes[0], bytes[1], bytes[2], bytes[3]);
-    const len2 = bytesToInt32(bytes[4], bytes[5], bytes[6], bytes[7]);
+    points.sort((a, b) => a.order - b.order);
 
-    if (len1 !== len2) {
-      alert("خطأ في الرأس – الصورة تالفة.");
-      return;
-    }
+    let result = points.map(p => "كلمة" + p.freq).join(" ");
 
-    const length = len1;
-    const crcStored = bytesToInt32(bytes[8], bytes[9], bytes[10], bytes[11]);
-
-    const payload = bytes.slice(12, 12 + length);
-    if (payload.length < length) {
-      alert("البيانات ناقصة.");
-      return;
-    }
-
-    const crcCalc = crc32(payload);
-    if (crcCalc !== crcStored) {
-      alert("CRC غير مطابق – الصورة تالفة أو المفتاح خاطئ.");
-      return;
-    }
-
-    const base64 = bytesToText(payload);
-
-    let binStr;
-    try {
-      binStr = atob(base64);
-    } catch (e) {
-      alert("Base64 غير صالح – ربما المفتاح خاطئ.");
-      return;
-    }
-
-    const encryptedBytes = [];
-    for (let i = 0; i < binStr.length; i++) {
-      encryptedBytes.push(binStr.charCodeAt(i));
-    }
-
-    const plainBytes = xorBytesWithKey(encryptedBytes, key32);
-    const text = bytesToText(plainBytes);
-
-    document.getElementById("outputText").textContent = text;
+    document.getElementById("outputText").textContent = result;
   };
 
   img.src = URL.createObjectURL(file);
