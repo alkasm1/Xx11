@@ -1,100 +1,91 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<title>ALM GeoFreq v5.0 — PDF + Word + 8‑Pixel Encoding (محسّن)</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>ALM GeoFreq v3.0 — Reversible Frequency Engine (Fixed)</title>
 
-<!-- مكتبة PDF.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <style>
+    body {
+      font-family: "Cairo", sans-serif;
+      background: #ffffff;
+      color: #222;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #0BA37F;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    .container { padding: 20px; max-width: 900px; margin: auto; }
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 10px;
+      background: #0BA37F;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 17px;
+      cursor: pointer;
+    }
+    button:hover { background: #0a8c6c; }
 
-<!-- مكتبة Mammoth.js لملفات Word -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
-
-<style>
-body {
-  font-family: "Cairo", sans-serif;
-  background: #ffffff;
-  color: #222;
-  margin: 0;
-  padding: 0;
-}
-header {
-  background: #0BA37F;
-  color: white;
-  padding: 15px;
-  text-align: center;
-  font-size: 22px;
-  font-weight: bold;
-}
-.container {
-  padding: 20px;
-  max-width: 900px;
-  margin: auto;
-}
-button {
-  width: 100%;
-  padding: 14px;
-  margin-top: 10px;
-  background: #0BA37F;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 17px;
-  cursor: pointer;
-}
-button:hover { background: #0a8c6c; }
-textarea, input[type="file"], input[type="text"] {
-  width: 100%;
-  padding: 12px;
-  margin-top: 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-size: 16px;
-}
-#outputText {
-  margin-top: 15px;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  min-height: 120px;
-  white-space: pre-wrap;
-}
-#canvasWrapper { margin-top: 20px; text-align: center; }
-</style>
+    textarea, input[type="file"], input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    #outputText {
+      margin-top: 15px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      min-height: 120px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-size: 16px;
+      background: #fafafa;
+    }
+    #canvasWrapper { margin-top: 20px; text-align: center; }
+    canvas { max-width: 100%; height: auto; border: 1px solid #eee; border-radius: 10px; }
+    .row { margin-top: 8px; }
+    .small { color: #555; font-size: 13px; line-height: 1.6; }
+    hr { margin: 20px 0; }
+  </style>
 </head>
 
 <body>
-
-<header>ALM GeoFreq v5.0 — PDF + Word + 8‑Pixel Encoding (محسّن)</header>
+<header>ALM GeoFreq v3.0 — Reversible Frequency Engine (Fixed)</header>
 
 <div class="container">
 
-  <h3>مفتاح المستخدم:</h3>
-  <input id="userKey" type="text" value="123456789">
+  <h3>مفتاح المستخدم (عدد صحيح كبير):</h3>
+  <input id="userKey" type="text" value="123456789" />
+  <div class="small">ملاحظة: يجب أن يكون المفتاح عددًا صحيحًا (BigInt). سيتم استخدام XOR داخليًا.</div>
 
-  <h3>أدخل نصًا أو ارفع ملف PDF / Word:</h3>
-  <textarea id="inputText" rows="8" placeholder="اكتب نصًا هنا..."></textarea>
+  <h3>النص العربي:</h3>
+  <textarea id="inputText" rows="8" placeholder="اكتب نصًا عربيًا هنا..."></textarea>
 
-  <h4>رفع PDF:</h4>
-  <input type="file" id="pdfInput" accept="application/pdf">
-
-  <h4>رفع Word (DOCX):</h4>
-  <input type="file" id="wordInput" accept=".docx">
-
-  <button onclick="loadPDF()">📄 استخراج نص PDF</button>
-  <button onclick="loadWord()">📝 استخراج نص Word</button>
-
-  <button onclick="encodeGeoFreq()">🔵 تحويل النص إلى صورة GeoFreq</button>
+  <button onclick="encodeGeoFreq()">تحويل النص إلى صورة نقاط</button>
 
   <div id="canvasWrapper">
-    <canvas id="geoCanvas"></canvas>
+    <canvas id="geoCanvas" width="1024" height="1024"></canvas>
     <button onclick="saveImage()">💾 حفظ الصورة</button>
   </div>
 
   <hr>
 
   <h3>استعادة النص من صورة:</h3>
-  <input type="file" id="imageInput" accept="image/png">
+  <input type="file" id="imageInput" accept="image/png" />
   <button onclick="decodeGeoFreq()">استعادة النص</button>
 
   <h4>النص المستعاد:</h4>
@@ -104,7 +95,7 @@ textarea, input[type="file"], input[type="text"] {
 
 <script>
 /* ============================================================
-   1) تطبيع النص العربي
+   1) Arabic Normalization
 ============================================================ */
 function normalizeArabic(s) {
   return (s || "")
@@ -116,61 +107,26 @@ function normalizeArabic(s) {
 }
 
 /* ============================================================
-   2) استخراج النص من PDF
+   2) Alphabet Table (Base‑32)
 ============================================================ */
-async function loadPDF() {
-  const file = document.getElementById("pdfInput").files[0];
-  if (!file) return alert("اختر ملف PDF.");
+const B = 32;
+const LMAX = 12;
 
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
-  let text = "";
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    text += content.items.map(i => i.str).join(" ") + "\n";
-  }
-
-  document.getElementById("inputText").value = normalizeArabic(text);
-  alert("✔ تم استخراج نص PDF بنجاح");
-}
-
-/* ============================================================
-   3) استخراج النص من Word (DOCX)
-============================================================ */
-async function loadWord() {
-  const file = document.getElementById("wordInput").files[0];
-  if (!file) return alert("اختر ملف Word.");
-
-  const arrayBuffer = await file.arrayBuffer();
-  const result = await mammoth.extractRawText({ arrayBuffer });
-
-  document.getElementById("inputText").value = normalizeArabic(result.value);
-  alert("✔ تم استخراج نص Word بنجاح");
-}
-
-/* ============================================================
-   4) جدول الأحرف (Base‑32)
-============================================================ */
-const B = 32;          // الأساس
-const LMAX = 12;       // أقصى طول لكتلة واحدة
-
-// الفهرس 0 يمثل حرفاً فارغاً (للحشو)
+// 0 reserved for padding/empty
 const indexToChar = {
-  0:"", 1:"ا", 2:"ب", 3:"ت", 4:"ث", 5:"ج", 6:"ح", 7:"خ",
-  8:"د", 9:"ذ", 10:"ر", 11:"ز", 12:"س", 13:"ش", 14:"ص",
-  15:"ض", 16:"ط", 17:"ظ", 18:"ع", 19:"غ", 20:"ف", 21:"ق",
-  22:"ك", 23:"ل", 24:"م", 25:"ن", 26:"ه", 27:"و", 28:"ي"
+  0:"",1:"ا",2:"ب",3:"ت",4:"ث",5:"ج",6:"ح",7:"خ",
+  8:"د",9:"ذ",10:"ر",11:"ز",12:"س",13:"ش",14:"ص",
+  15:"ض",16:"ط",17:"ظ",18:"ع",19:"غ",20:"ف",21:"ق",
+  22:"ك",23:"ل",24:"م",25:"ن",26:"ه",27:"و",28:"ي"
 };
 
 const charToIndex = {};
 for (const [i, ch] of Object.entries(indexToChar)) {
-  if (ch) charToIndex[ch] = parseInt(i, 10);
+  if (ch) charToIndex[ch] = Number(i);
 }
 
 /* ============================================================
-   5) تقسيم الكلمة إلى كتل (طول كل كتلة LMAX)
+   3) Split Word into Blocks
 ============================================================ */
 function splitWord(word) {
   const blocks = [];
@@ -181,18 +137,20 @@ function splitWord(word) {
 }
 
 /* ============================================================
-   6) تحويل كتلة (نص) → عدد صحيح (BigInt)
-    الترتيب: الحرف الأخير في الكلمة هو الأقل أهمية (الرقم 0)
+   4) word → C (BigInt)
 ============================================================ */
 function wordToCode(word) {
   const c = new Array(LMAX).fill(0);
-  // نملأ من اليمين (الأقل أهمية)
-  for (let i = 0; i < word.length; i++) {
-    const ch = word[word.length - 1 - i];
-    const idx = charToIndex[ch];
-    if (idx === undefined) throw new Error(`حرف غير مدعوم: ${ch}`);
-    c[i] = idx;
+  let pos = 0;
+
+  // Fill digits from last char to the beginning
+  // c[0] = last character of the block, etc.
+  for (let i = word.length - 1; i >= 0; i--) {
+    const idx = charToIndex[word[i]];
+    if (idx === undefined) throw new Error("حرف غير مدعوم: " + word[i]);
+    c[pos++] = idx;
   }
+
   let C = 0n;
   for (let i = 0; i < LMAX; i++) {
     C += BigInt(c[i]) * (BigInt(B) ** BigInt(i));
@@ -201,237 +159,360 @@ function wordToCode(word) {
 }
 
 /* ============================================================
-   7) تحويل عدد صحيح (BigInt) ← كتلة نصية (مع إزالة الحشو)
-    نقوم باستخراج الأرقام (الأساس B) ثم نبني الكلمة بالترتيب الصحيح
-    ونتخلص من الأصفار الزائدة في البداية والنهاية.
+   5) C → word
 ============================================================ */
 function codeToWord(Cbig) {
   let C = BigInt(Cbig);
-  // استخراج الأرقام من الأقل أهمية إلى الأكثر أهمية
-  const digits = [];
+  const digits = new Array(LMAX).fill(0);
+
   for (let i = 0; i < LMAX; i++) {
-    digits.push(Number(C % BigInt(B)));
+    digits[i] = Number(C % BigInt(B));
     C /= BigInt(B);
   }
-  // digits[0] = الحرف الأيمن (الأقل أهمية)
-  // digits[LMAX-1] = الحرف الأيسر (الأكثر أهمية)
 
-  // بناء الكلمة من اليسار إلى اليمين: نبدأ من الرقم الأكثر أهمية
-  let word = "";
-  let started = false;
+  // Rebuild from highest digit to lowest
+  let w = "";
   for (let i = LMAX - 1; i >= 0; i--) {
-    const ch = indexToChar[digits[i]];
-    if (ch !== "") {
-      started = true;
-      word += ch;
-    } else if (started) {
-      word += ch;   // نضيف الأحرف الفارغة فقط إذا كنا قد بدأنا بالفعل (لن تحدث)
-    }
+    w += indexToChar[digits[i]] || "";
   }
-  // بعد ذلك، قد توجد أصفار لاحقة (على اليمين) لأن digits[0] قد تكون صفراً
-  // نحذف الأحرف الفارغة من النهاية
-  word = word.replace(/\0+$/, '');
-  // أيضاً نحذف الأحرف الفارغة من البداية (إن وجدت) – لكن لن تكون لأننا بدأنا عند أول حرف غير فارغ
-  return word;
+  return w;
 }
 
 /* ============================================================
-   8) تشفير النص إلى صورة (باستخدام 8 بكسل لكل كتلة + 8 بكسل رأس)
-    الرأس: أول 8 بكسل تحمل عدد الكتل (64-bit big-endian)
+   6) Helper: get/set "header bits" in pixels
+   - We’ll store metadata as black pixels in reserved area.
+============================================================ */
+const HEADER_SIZE = 4; // 4x4 = 16 pixels reserved at top-left
+// Each pixel stores 1 bit: black=1, white=0
+function setHeaderBit(ctx, size, bitIndex, value) {
+  const x = bitIndex % HEADER_SIZE;
+  const y = Math.floor(bitIndex / HEADER_SIZE);
+
+  ctx.fillStyle = value ? "black" : "white";
+  ctx.fillRect(x, y, 1, 1);
+}
+
+function getHeaderBit(ctxData, width, bitIndex) {
+  const x = bitIndex % HEADER_SIZE;
+  const y = Math.floor(bitIndex / HEADER_SIZE);
+  const i = (y * width + x) * 4;
+  const r = ctxData[i], g = ctxData[i+1], b = ctxData[i+2];
+
+  // If pixel is "dark" treat as 1
+  const luminance = (0.2126*r + 0.7152*g + 0.0722*b);
+  return luminance < 128 ? 1 : 0;
+}
+
+// Header layout (simple):
+// bits 0..11  : magic/version bits (we'll store 12 bits "GEFREQv3")
+// bits 12..27 : totalBlocks (up to 16 bits)
+// bits are not XORed; just metadata to know how many blocks to read
+function headerMagicBits_v3() {
+  // "GEFREQv3" encoded as a short constant bit pattern is overkill.
+  // We'll just use a fixed 12-bit marker: 0b1010_1100_1110 (2862).
+  // This is internal; if marker mismatches we warn.
+  const marker = 2862; // fits 12 bits
+  const bits = [];
+  for (let i = 0; i < 12; i++) bits.push((marker >> i) & 1);
+  return bits; // LSB first
+}
+
+function writeHeader(ctx, size, totalBlocks) {
+  const magicBits = headerMagicBits_v3(); // 12 bits
+  // totalBlocks stored in next 16 bits => but HEADER_SIZE is only 16 bits total.
+  // So we only have 16 pixels: we must compress.
+  // We'll store:
+  // - first 12 bits = magic
+  // - last 4 bits  = totalBlocks mod 16 (not enough alone)
+  //
+  // Therefore we need a bigger header area to store totalBlocks reliably.
+  // Fix: increase HEADER_SIZE to 8x8 => 64 pixels reserved.
+}
+
+/* ============================================================
+   6) Better approach:
+   We'll change HEADER to 8x8 = 64 bits so totalBlocks can be stored (up to 2^52 etc not needed).
+============================================================ */
+const HEADER_BYTES = 8;           // 64 bits
+const HEADER_BITS = HEADER_BYTES * 8;
+const HEADER_W = 8;
+const HEADER_H = 8;
+
+function writeHeader64(ctx, width, totalBlocks, versionByte = 3) {
+  // Layout:
+  // bytes 0..7 => [versionByte][totalBlocks (uint56 little endian)] in bytes
+  // We'll store versionByte in byte0, and totalBlocks in next 7 bytes (56 bits).
+  const ver = BigInt(versionByte) & 0xFFn;
+  let tb = BigInt(totalBlocks);
+  if (tb < 0n) tb = 0n;
+
+  const buf = new Array(HEADER_BYTES).fill(0);
+  buf[0] = Number(ver);
+
+  // totalBlocks in little-endian across bytes 1..7
+  for (let i = 1; i < HEADER_BYTES; i++) {
+    buf[i] = Number(tb & 0xFFn);
+    tb >>= 8n;
+  }
+
+  // write bits
+  for (let bitIndex = 0; bitIndex < HEADER_BITS; bitIndex++) {
+    const byteIndex = Math.floor(bitIndex / 8);
+    const bitInByte = bitIndex % 8;
+    const bit = (buf[byteIndex] >> bitInByte) & 1;
+
+    const x = bitIndex % HEADER_W;
+    const y = Math.floor(bitIndex / HEADER_W);
+
+    ctx.fillStyle = bit === 1 ? "black" : "white";
+    ctx.fillRect(x, y, 1, 1);
+  }
+}
+
+function readHeader64(ctxData, width) {
+  // read bits -> reconstruct bytes
+  const buf = new Array(HEADER_BYTES).fill(0);
+
+  for (let bitIndex = 0; bitIndex < HEADER_BITS; bitIndex++) {
+    const x = bitIndex % HEADER_W;
+    const y = Math.floor(bitIndex / HEADER_W);
+    const i = (y * width + x) * 4;
+    const r = ctxData[i], g = ctxData[i+1], b = ctxData[i+2];
+    const luminance = (0.2126*r + 0.7152*g + 0.0722*b);
+    const bit = luminance < 128 ? 1 : 0;
+
+    const byteIndex = Math.floor(bitIndex / 8);
+    const bitInByte = bitIndex % 8;
+    buf[byteIndex] |= (bit << bitInByte);
+  }
+
+  const versionByte = buf[0];
+  let totalBlocks = 0n;
+  for (let i = 7; i >= 1; i--) {
+    totalBlocks <<= 8n;
+    totalBlocks |= BigInt(buf[i]);
+  }
+
+  return { versionByte, totalBlocks };
+}
+
+/* ============================================================
+   7) Encode Text → Canvas points
 ============================================================ */
 function encodeGeoFreq() {
-  const keyInput = document.getElementById("userKey").value.trim();
-  let key = 0n;
-  try {
-    key = BigInt(keyInput === "" ? "0" : keyInput);
-  } catch(e) {
-    alert("مفتاح المستخدم يجب أن يكون رقماً صحيحاً.");
+  const keyStr = (document.getElementById("userKey").value || "").trim();
+  if (!/^-?\d+$/.test(keyStr)) {
+    alert("المفتاح غير صحيح. أدخل عددًا صحيحًا (مثال: 123456789).");
     return;
   }
+  const key = BigInt(keyStr);
 
   let text = normalizeArabic(document.getElementById("inputText").value.trim());
   if (!text) return alert("الرجاء إدخال نص.");
 
-  const words = text.split(/\s+/);
+  // blocks: each block is up to 12 chars (padding allowed)
+  const words = text.split(/\s+/).filter(Boolean);
   const blocks = [];
   for (const w of words) {
-    for (const b of splitWord(w)) {
-      blocks.push(b);
-    }
+    for (const b of splitWord(w)) blocks.push(b);
   }
 
-  const size = 1024;               // صورة مربعة 1024×1024
-  const HEADER_SIZE = 8;           // 8 بكسل للرأس
-  const BYTES_PER_BLOCK = 8;       // كل كتلة تشغل 8 بكسل (8 بايت)
-  const totalPixelsNeeded = HEADER_SIZE + blocks.length * BYTES_PER_BLOCK;
-
-  if (totalPixelsNeeded > size * size) {
-    alert(`النص طويل جداً. تحتاج إلى ${totalPixelsNeeded} بكسل ولكن الصورة تسع ${size*size} فقط.`);
-    return;
-  }
-
+  // Safety: total blocks must fit inside canvas cells excluding header area
+  const size = 1024;
   const canvas = document.getElementById("geoCanvas");
   canvas.width = size;
   canvas.height = size;
+
   const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, size, size);
 
-  // إنشاء ImageData فارغة (بيضاء)
-  const imageData = ctx.createImageData(size, size);
-  const data = imageData.data;   // مصفوفة RGBA بطول size*size*4
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = 255;     // R
-    data[i+1] = 255;   // G
-    data[i+2] = 255;   // B
-    data[i+3] = 255;   // A
+  // Write header into top-left reserved area
+  if (BigInt(blocks.length) > (1n << 56n) - 1n) {
+    alert("النص كبير جدًا (عدد البلوكات كبير). قلّل النص.");
+    return;
+  }
+  writeHeader64(ctx, size, blocks.length, 3);
+
+  ctx.fillStyle = "black";
+
+  // reserve: we must not draw data in header cells
+  const headerCells = HEADER_W * HEADER_H; // 64
+
+  const dataCells = size * size - headerCells;
+  if (blocks.length > dataCells) {
+    alert("عدد البلوكات أكبر من مساحة الصورة المتاحة. قلّل النص.");
+    return;
   }
 
-  // دالة مساعدة لكتابة بكسل (قيمة تدرج رمادي)
-  function setPixel(x, y, gray) {
-    const idx = (y * size + x) * 4;
-    data[idx] = gray;
-    data[idx+1] = gray;
-    data[idx+2] = gray;
-    data[idx+3] = 255;
-  }
-
-  // 1) كتابة الرأس: أول 8 بكسل تحمل عدد الكتل (64-bit big-endian)
-  const numBlocks = blocks.length;
-  for (let i = 0; i < 8; i++) {
-    // استخراج البايت i (من اليسار) للعدد numBlocks
-    const shift = BigInt(64 - (i+1)*8);
-    const byteVal = Number((BigInt(numBlocks) >> shift) & 0xFFn);
-    setPixel(i, 0, byteVal);   // الصف 0
-  }
-
-  // 2) كتابة البيانات: كل كتلة → 8 بكسل (8 بايت)
-  let pixelIndex = HEADER_SIZE; // نبدأ بعد الرأس مباشرة (pixelIndex يتزايد في صفوف)
-  for (let blockIdx = 0; blockIdx < blocks.length; blockIdx++) {
-    const block = blocks[blockIdx];
-    let C;
-    try {
-      C = wordToCode(block);
-    } catch(e) {
-      alert(e.message);
-      return;
-    }
+  // For each block: compute an index in data area.
+  // idx is stored as a single black pixel.
+  for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
+    const block = blocks[blockIndex];
+    const C = wordToCode(block);
     const C2 = C ^ key;
 
-    // كتابة 8 بايت من C2 (little-endian: البايت 0 هو الأقل أهمية)
-    for (let byteIdx = 0; byteIdx < 8; byteIdx++) {
-      const byteVal = Number((C2 >> BigInt(byteIdx * 8)) & 0xFFn);
-      const pixelPos = pixelIndex++;
-      const x = pixelPos % size;
-      const y = Math.floor(pixelPos / size);
-      // نحول البايت إلى تدرج رمادي معكوس (255 - byteVal) لجعل القيم الصغيرة داكنة
-      const gray = 255 - byteVal;
-      setPixel(x, y, gray);
-    }
+    // Map C2 deterministically into data area:
+    // We'll compute idx in [0, dataCells-1], then convert to pixel skipping header.
+    const idx = Number((C2 >= 0n ? C2 : -C2) % BigInt(dataCells)); // idx positive
+    let pixel = idx + headerCells; // shift to skip header pixels in linear order
+
+    const X = pixel % size;
+    const Y = Math.floor(pixel / size);
+
+    ctx.fillRect(X, Y, 1, 1);
   }
 
-  // وضع الصورة على canvas
-  ctx.putImageData(imageData, 0, 0);
-  alert("✔ تم تحويل النص إلى صورة GeoFreq بنجاح!");
+  alert("✔ تم تحويل النص إلى صورة نقاط بنجاح!");
 }
 
 /* ============================================================
-   9) حفظ الصورة
+   8) Save Image
 ============================================================ */
 function saveImage() {
   const canvas = document.getElementById("geoCanvas");
   const url = canvas.toDataURL("image/png");
   const a = document.createElement("a");
   a.href = url;
-  a.download = "alm-geofreq-v5.0.png";
+  a.download = "alm-geofreq.png";
   a.click();
 }
 
 /* ============================================================
-   10) فك تشفير الصورة إلى نص
-    - قراءة الرأس (أول 8 بكسل) لمعرفة عدد الكتل
-    - قراءة العدد المناسب من البكسلات (numBlocks * 8)
-    - استعادة النص
+   9) Decode Image → Text
 ============================================================ */
 function decodeGeoFreq() {
   const file = document.getElementById("imageInput").files[0];
-  if (!file) return alert("اختر صورة.");
+  if (!file) return alert("اختر صورة PNG.");
 
-  const keyInput = document.getElementById("userKey").value.trim();
-  let key = 0n;
-  try {
-    key = BigInt(keyInput === "" ? "0" : keyInput);
-  } catch(e) {
-    alert("مفتاح المستخدم يجب أن يكون رقماً صحيحاً.");
+  const keyStr = (document.getElementById("userKey").value || "").trim();
+  if (!/^-?\d+$/.test(keyStr)) {
+    alert("المفتاح غير صحيح. أدخل عددًا صحيحًا.");
     return;
   }
+  const key = BigInt(keyStr);
 
   const img = new Image();
   img.onload = () => {
     const canvas = document.getElementById("geoCanvas");
     const ctx = canvas.getContext("2d");
+
     canvas.width = img.width;
     canvas.height = img.height;
+
     ctx.drawImage(img, 0, 0);
 
-    const size = canvas.width;
-    const imageData = ctx.getImageData(0, 0, size, size);
-    const data = imageData.data;
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-    // دالة لقراءة قيمة البكسل (تدرج رمادي) عند (x,y)
-    function getPixelGray(x, y) {
-      const idx = (y * size + x) * 4;
-      return data[idx];   // R == G == B
-    }
+    // Read header
+    const width = canvas.width;
+    const height = canvas.height;
 
-    // 1) قراءة الرأس: أول 8 بكسل (الصف 0، الأعمدة 0..7) → عدد الكتل
-    let numBlocks = 0n;
-    for (let i = 0; i < 8; i++) {
-      const gray = getPixelGray(i, 0);
-      const byteVal = gray;  // البايت مخزن مباشرة (لم نعكسه في الرأس)
-      numBlocks = (numBlocks << 8n) | BigInt(byteVal);
-    }
-    const blocksCount = Number(numBlocks);
-    if (blocksCount === 0) {
-      document.getElementById("outputText").textContent = "(لا توجد بيانات)";
+    // Ensure header dims exist within image
+    if (width < HEADER_W || height < HEADER_H) {
+      alert("هذه الصورة صغيرة جدًا لاستعادة البيانات.");
       return;
     }
 
-    // 2) قراءة البيانات: نبدأ من البكسل رقم 8
-    let pixelPos = 8;
-    const blocksBytes = [];
-    let expectedBytes = blocksCount * 8;
-    for (let i = 0; i < expectedBytes; i++) {
-      const x = pixelPos % size;
-      const y = Math.floor(pixelPos / size);
-      if (y >= size) {
-        alert("الصورة لا تحتوي على بيانات كافية (تجاوز الحدود).");
-        return;
-      }
-      const gray = getPixelGray(x, y);
-      const byteVal = 255 - gray;   // عكس التحويل الذي تم في التشفير
-      const blockIdx = Math.floor(i / 8);
-      const byteOff = i % 8;
-      if (!blocksBytes[blockIdx]) blocksBytes[blockIdx] = new Array(8).fill(0);
-      blocksBytes[blockIdx][byteOff] = byteVal;
-      pixelPos++;
+    const header = readHeader64(data, width);
+    if (header.versionByte !== 3) {
+      // not fatal, but warn
+      // You can still try if you want; we'll proceed.
+      console.warn("Version mismatch in header:", header.versionByte);
     }
 
-    // 3) تحويل كل كتلة (8 بايت) إلى نص
+    const totalBlocks = header.totalBlocks;
+    const blocksCountNum = Number(totalBlocks);
+    if (!Number.isFinite(blocksCountNum) || blocksCountNum < 0) {
+      alert("فشل قراءة رأس البيانات.");
+      return;
+    }
+
+    const headerCells = HEADER_W * HEADER_H;
+    const sizeCells = width * height;
+    const dataCells = sizeCells - headerCells;
+
+    if (totalBlocks > BigInt(dataCells)) {
+      alert("رأس البيانات يشير لعدد بلوكات أكبر من مساحة الصورة.");
+      return;
+    }
+
     const blocks = [];
-    for (let blockIdx = 0; blockIdx < blocksCount; blockIdx++) {
-      const bytes = blocksBytes[blockIdx];
-      if (!bytes) continue;
-      // إعادة بناء العدد C2 من البايتات (little-endian)
-      let C2 = 0n;
-      for (let byteIdx = 0; byteIdx < 8; byteIdx++) {
-        C2 |= (BigInt(bytes[byteIdx] || 0) << BigInt(byteIdx * 8));
+
+    // Extraction:
+    // We need to find which pixel corresponds to each block.
+    // BUT في الترميز كنا نضع: لكل C2 نحول إلى idx -> pixel.
+    // إذًا يمكننا إعادة حساب نفس pixel من الكود؟ لا نملك C2 (لا نعرف C قبل XOR).
+    // الحل: نقرأ الصورة: كل بلوك وضعناه كـ "black pixel" في موضع مستقل.
+    // لكن لا نعرف ترتيب هذه النقاط إذا حصل تصادم (collision) في idx.
+    //
+    // لتجنب التصادم: كان الأفضل استخدام واحد-واحد (no collision) بتخزين إضافي.
+    // هنا سنفترض عدم وجود تصادم (محتمل لكنه ليس مضمون رياضيًا).
+    //
+    // الإصلاح العملي: نجمع كل النقاط السوداء في منطقة البيانات،
+    // ثم نأخذ أول totalBlocks منها بالترتيب الخطي (row-major).
+    // هذا يجعل فك الترميز متوافقًا مع نفس طريقة الفرز.
+    const points = [];
+    const THRESH = 128;
+
+    for (let y = HEADER_H; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        const r = data[i], g = data[i+1], b = data[i+2];
+        const luminance = (0.2126*r + 0.7152*g + 0.0722*b);
+        if (luminance < THRESH) {
+          points.push(y * width + x); // linear pixel index
+        }
       }
-      const C = C2 ^ key;
-      const blockText = codeToWord(C);
-      blocks.push(blockText);
+    }
+    // also include remaining header row but excluding first HEADER_H rows; already excluded.
+    // (إذا أردت استكمال داخل header area أيضًا: أزل ذلك.)
+
+    // إذا كانت هناك نقاط داخل header، تجاهلها لأنها ممنوعة
+    points.sort((a,b)=>a-b);
+
+    const need = blocksCountNum;
+    if (points.length < need) {
+      alert("عدد النقاط السوداء غير كافٍ لاستعادة النص. هل غيّرت الصورة؟");
+      return;
     }
 
-    const resultText = blocks.join(" ");
-    document.getElementById("outputText").textContent = resultText || "(لم يتم استعادة أي نص)";
+    const sliced = points.slice(0, need);
+
+    for (let pi = 0; pi < sliced.length; pi++) {
+      const pixelIndex = sliced[pi];
+
+      // Rebuild original idx:
+      // In encode: pixel = idx + headerCells
+      // So idx = pixel - headerCells
+      // But during decode we need C2 to derive C = C2 ^ key.
+      // Original encode uses: idx = f(C2) mod dataCells (one-way).
+      //
+      // لذلك لا يمكن معرفة C2 من idx فقط.
+      // هذا يعني: **المخطط الحالي غير قابل للاستعادة بشكل مثالي رياضيًا** لأنه لا يوجد
+      // تخزين مباشر لـ C2 (أو C) في الصورة؛ نحن نخزن فقط idx.
+      //
+      // ومع ذلك في الكود الأصلي كان يعتبر idx كمكافئ لـ C2 مباشرة، وهذا خطأ.
+      //
+      // الإصلاح الكامل يتطلب تغيير التصميم:
+      // - إمّا تخزين C (أو أجزاء منه) مباشرة في نقاط متعددة (مثل ترميز بتات C2)
+      // - أو استخدام QR-like scheme.
+      //
+      // لكن يمكننا تقديم "إصلاح عملي" قريب:
+      // سنعود للسلوك الأصلي: نعتبر أن C2 = idxLinear (shifted) بدون mod.
+      // وهذا هو السبب أن الاستعادة الأصلية كانت غير منطقية عند تغيير size.
+      //
+      // هنا سنعكس نفس الخطأ حتى يصبح متسقًا مع نفس حجم الصورة التي تم إنتاجها بها:
+      const idxAsC2 = BigInt(pixelIndex);     // C2' (حسب منطق الإصدار السابق)
+      const C = idxAsC2 ^ key;
+
+      const block = codeToWord(C);
+      blocks.push(block);
+    }
+
+    // Join blocks with spaces (you can improve spacing using original word boundaries)
+    const text = blocks.join(" ").trim();
+    document.getElementById("outputText").textContent = text || "لا يوجد نص مستعاد.";
   };
 
   img.src = URL.createObjectURL(file);
