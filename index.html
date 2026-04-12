@@ -1,63 +1,65 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <title>ALM GeoFreq v4.0 — 8‑Pixel Reversible Encoding</title>
-  <style>
-    body {
-      font-family: "Cairo", sans-serif;
-      background: #ffffff;
-      color: #222;
-      margin: 0;
-      padding: 0;
-    }
-    header {
-      background: #0BA37F;
-      color: white;
-      padding: 15px;
-      text-align: center;
-      font-size: 22px;
-      font-weight: bold;
-    }
-    .container {
-      padding: 20px;
-      max-width: 900px;
-      margin: auto;
-    }
-    button {
-      width: 100%;
-      padding: 14px;
-      margin-top: 10px;
-      background: #0BA37F;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 17px;
-      cursor: pointer;
-    }
-    button:hover { background: #0a8c6c; }
-    textarea, input[type="file"], input[type="text"] {
-      width: 100%;
-      padding: 12px;
-      margin-top: 10px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 16px;
-    }
-    #outputText {
-      margin-top: 15px;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      min-height: 120px;
-      white-space: pre-wrap;
-    }
-    #canvasWrapper { margin-top: 20px; text-align: center; }
-  </style>
+<meta charset="UTF-8">
+<title>ALM GeoFreq v4.1 — 8‑Pixel Reversible Encoding + Protected Header</title>
+
+<style>
+body {
+  font-family: "Cairo", sans-serif;
+  background: #ffffff;
+  color: #222;
+  margin: 0;
+  padding: 0;
+}
+header {
+  background: #0BA37F;
+  color: white;
+  padding: 15px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: bold;
+}
+.container {
+  padding: 20px;
+  max-width: 900px;
+  margin: auto;
+}
+button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 10px;
+  background: #0BA37F;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 17px;
+  cursor: pointer;
+}
+button:hover { background: #0a8c6c; }
+textarea, input[type="file"], input[type="text"] {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 16px;
+}
+#outputText {
+  margin-top: 15px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  min-height: 120px;
+  white-space: pre-wrap;
+}
+#canvasWrapper { margin-top: 20px; text-align: center; }
+</style>
 </head>
+
 <body>
 
-<header>ALM GeoFreq v4.0 — 8‑Pixel Reversible Encoding</header>
+<header>ALM GeoFreq v4.1 — 8‑Pixel Reversible Encoding + Protected Header</header>
 
 <div class="container">
 
@@ -86,7 +88,9 @@
 </div>
 
 <script>
-/* ========== 1) تطبيع العربية ========== */
+/* ============================================================
+   Arabic Normalization
+============================================================ */
 function normalizeArabic(s) {
   return (s || "")
     .replace(/[إأآ]/g, "ا")
@@ -96,7 +100,9 @@ function normalizeArabic(s) {
     .replace(/ة/g, "ه");
 }
 
-/* ========== 2) جدول الحروف (أساس 32) ========== */
+/* ============================================================
+   Alphabet Table (Base‑32)
+============================================================ */
 const B = 32;
 const LMAX = 12;
 
@@ -112,7 +118,9 @@ for (const [i,ch] of Object.entries(indexToChar)) {
   if (ch) charToIndex[ch] = parseInt(i, 10);
 }
 
-/* ========== 3) تقسيم الكلمة إلى بلوكات ========== */
+/* ============================================================
+   Split Word into Blocks
+============================================================ */
 function splitWord(word) {
   const blocks = [];
   for (let i = 0; i < word.length; i += LMAX) {
@@ -121,7 +129,9 @@ function splitWord(word) {
   return blocks;
 }
 
-/* ========== 4) word → C (BigInt) ========== */
+/* ============================================================
+   word → C (BigInt)
+============================================================ */
 function wordToCode(word){
   const c = new Array(LMAX).fill(0);
   let pos = 0;
@@ -137,7 +147,9 @@ function wordToCode(word){
   return C;
 }
 
-/* ========== 5) C → word ========== */
+/* ============================================================
+   C → word
+============================================================ */
 function codeToWord(Cbig){
   let C = BigInt(Cbig);
   const digits = [];
@@ -152,7 +164,9 @@ function codeToWord(Cbig){
   return w;
 }
 
-/* ========== 6) ترميز النص إلى صورة (8 نقاط لكل بلوك) ========== */
+/* ============================================================
+   Encode Text → Image (8 pixels per block)
+============================================================ */
 function encodeGeoFreq() {
   const key = BigInt(document.getElementById("userKey").value || "0");
   let text = normalizeArabic(document.getElementById("inputText").value.trim());
@@ -168,10 +182,12 @@ function encodeGeoFreq() {
   }
 
   const size = 1024;
+  const HEADER_PIXELS = 4096; // منطقة رأس محمية
   const maxPixels = size * size;
-  const neededPixels = blocks.length * 8;
+  const neededPixels = HEADER_PIXELS + blocks.length * 8;
+
   if (neededPixels > maxPixels) {
-    alert("النص طويل جدًا لصورة واحدة 1024×1024 (يحتاج " + neededPixels + " نقطة).");
+    alert("النص طويل جدًا لصورة واحدة 1024×1024.");
     return;
   }
 
@@ -182,21 +198,19 @@ function encodeGeoFreq() {
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, size, size);
-  ctx.fillStyle = "black";
 
   blocks.forEach((block, blockIndex) => {
     const C  = wordToCode(block);
-    const C2 = C ^ key; // 64‑bit مشفّر
+    const C2 = C ^ key;
 
     for (let byteIndex = 0; byteIndex < 8; byteIndex++) {
-      const byteVal = Number((C2 >> BigInt(8 * byteIndex)) & 0xFFn); // 0..255
+      const byteVal = Number((C2 >> BigInt(8 * byteIndex)) & 0xFFn);
 
-      const p = blockIndex * 8 + byteIndex; // رقم البكسل التسلسلي
+      const p = HEADER_PIXELS + blockIndex * 8 + byteIndex;
       const x = p % size;
       const y = Math.floor(p / size);
 
-      // نمثل قيمة البايت في سطوع البكسل: 0 = أسود، 255 = أبيض
-      const gray = 255 - byteVal; // عكسية لتمييزه عن الخلفية البيضاء
+      const gray = 255 - byteVal;
       const imgData = ctx.createImageData(1,1);
       imgData.data[0] = gray;
       imgData.data[1] = gray;
@@ -209,21 +223,21 @@ function encodeGeoFreq() {
   alert("✔ تم تحويل النص إلى صورة نقاط (8 نقاط لكل بلوك) بنجاح!");
 }
 
-/* ========== 7) حفظ الصورة ========== */
+/* ============================================================
+   Save Image
+============================================================ */
 function saveImage() {
   const canvas = document.getElementById("geoCanvas");
-  if (!canvas.width || !canvas.height) {
-    alert("لا توجد صورة لحفظها.");
-    return;
-  }
   const url = canvas.toDataURL("image/png");
   const a = document.createElement("a");
   a.href = url;
-  a.download = "alm-geofreq-8px.png";
+  a.download = "alm-geofreq-v4.1.png";
   a.click();
 }
 
-/* ========== 8) فك الصورة إلى نص ========== */
+/* ============================================================
+   Decode Image → Text
+============================================================ */
 function decodeGeoFreq() {
   const file = document.getElementById("imageInput").files[0];
   if (!file) return alert("اختر صورة.");
@@ -240,25 +254,25 @@ function decodeGeoFreq() {
     ctx.drawImage(img, 0, 0);
 
     const size = canvas.width;
+    const HEADER_PIXELS = 4096;
     const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 
     const totalPixels = size * size;
-    const maxBlockIndex = Math.floor(totalPixels / 8);
-    const blocksBytes = []; // لكل بلوك: مصفوفة 8 بايت
+    const blocksBytes = [];
 
-    for (let p = 0; p < totalPixels; p++) {
+    for (let p = HEADER_PIXELS; p < totalPixels; p++) {
       const x = p % size;
       const y = Math.floor(p / size);
       const i = (y * size + x) * 4;
 
-      const r = data[i]; // r=g=b
-      if (r === 255) continue; // خلفية بيضاء = لا بيانات
+      const r = data[i];
+      if (r === 255) continue;
 
       const gray = r;
       const byteVal = 255 - gray;
 
-      const blockIndex = Math.floor(p / 8);
-      const byteIndex  = p % 8;
+      const blockIndex = Math.floor((p - HEADER_PIXELS) / 8);
+      const byteIndex  = (p - HEADER_PIXELS) % 8;
 
       if (!blocksBytes[blockIndex]) {
         blocksBytes[blockIndex] = new Array(8).fill(0);
@@ -284,7 +298,7 @@ function decodeGeoFreq() {
     }
 
     const text = blocks.join(" ");
-    document.getElementById("outputText").textContent = text || "(لا توجد بلوكات مسترجعة)";
+    document.getElementById("outputText").textContent = text || "(لا توجد بيانات)";
   };
 
   img.src = URL.createObjectURL(file);
