@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>ALM GeoFreq v5.0 — PDF + Word + 8‑Pixel Encoding</title>
+
+<!-- مكتبة PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+<!-- مكتبة Mammoth.js لملفات Word -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
+
+<style>
+body {
+  font-family: "Cairo", sans-serif;
+  background: #ffffff;
+  color: #222;
+  margin: 0;
+  padding: 0;
+}
+header {
+  background: #0BA37F;
+  color: white;
+  padding: 15px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: bold;
+}
+.container {
+  padding: 20px;
+  max-width: 900px;
+  margin: auto;
+}
+button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 10px;
+  background: #0BA37F;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 17px;
+  cursor: pointer;
+}
+button:hover { background: #0a8c6c; }
+textarea, input[type="file"], input[type="text"] {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 16px;
+}
+#outputText {
+  margin-top: 15px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  min-height: 120px;
+  white-space: pre-wrap;
+}
+#canvasWrapper { margin-top: 20px; text-align: center; }
+</style>
+</head>
+
+<body>
+
+<header>ALM GeoFreq v5.0 — PDF + Word + 8‑Pixel Encoding</header>
+
+<div class="container">
+
+  <h3>مفتاح المستخدم:</h3>
+  <input id="userKey" type="text" value="123456789">
+
+  <h3>أدخل نصًا أو ارفع ملف PDF / Word:</h3>
+  <textarea id="inputText" rows="8" placeholder="اكتب نصًا هنا..."></textarea>
+
+  <h4>رفع PDF:</h4>
+  <input type="file" id="pdfInput" accept="application/pdf">
+
+  <h4>رفع Word (DOCX):</h4>
+  <input type="file" id="wordInput" accept=".docx">
+
+  <button onclick="loadPDF()">📄 استخراج نص PDF</button>
+  <button onclick="loadWord()">📝 استخراج نص Word</button>
+
+  <button onclick="encodeGeoFreq()">🔵 تحويل النص إلى صورة GeoFreq</button>
+
+  <div id="canvasWrapper">
+    <canvas id="geoCanvas"></canvas>
+    <button onclick="saveImage()">💾 حفظ الصورة</button>
+  </div>
+
+  <hr>
+
+  <h3>استعادة النص من صورة:</h3>
+  <input type="file" id="imageInput" accept="image/png">
+  <button onclick="decodeGeoFreq()">استعادة النص</button>
+
+  <h4>النص المستعاد:</h4>
+  <div id="outputText"></div>
+
+</div>
+
+<script>
+/* ============================================================
+   1) Arabic Normalization
+============================================================ */
+function normalizeArabic(s) {
+  return (s || "")
+    .replace(/[إأآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
+    .replace(/ة/g, "ه");
+}
+
+/* ============================================================
+   2) PDF Extraction
+============================================================ */
+async function loadPDF() {
+  const file = document.getElementById("pdfInput").files[0];
+  if (!file) return alert("اختر ملف PDF.");
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+  let text = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(i => i.str).join(" ") + "\n";
+  }
+
+  document.getElementById("inputText").value = normalizeArabic(text);
+  alert("✔ تم استخراج نص PDF بنجاح");
+}
+
+/* ============================================================
+   3) Word Extraction
+============================================================ */
+async function loadWord() {
+  const file = document.getElementById("wordInput").files[0];
+  if (!file) return alert("اختر ملف Word.");
+
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+
+  document.getElementById("inputText").value = normalizeArabic(result.value);
+  alert("✔ تم استخراج نص Word بنجاح");
+}
+
+/* ============================================================
+   4) Alphabet Table (Base‑32)
+============================================================ */
+const B = 32;
+const LMAX = 12;
+
+const indexToChar = {
+  0:"",1:"ا",2:"ب",3:"ت",4:"ث",5:"ج",6:"ح",7:"خ",
+  8:"د",9:"ذ",10:"ر",11:"ز",12:"س",13:"ش",14:"ص",
+  15:"ض",16:"ط",17:"ظ",18:"ع",19:"غ",20:"ف",21:"ق",
+  22:"ك",23:"ل",24:"م",25:"ن",26:"ه",27:"و",28:"ي"
+};
+
+const charToIndex = {};
+for (const [i,ch] of Object.entries(indexToChar)) {
+  if (ch) charToIndex[ch] = parseInt(i, 10);
+}
+
+/* ============================================================
+   5) Split Word into Blocks
+============================================================ */
+function splitWord(word) {
+  const blocks = [];
+  for (let i = 0; i < word.length; i += LMAX) {
+    blocks.push(word.slice(i, i + LMAX));
+  }
+  return blocks;
+}
+
+/* ============================================================
+   6) word → C (BigInt)
+============================================================ */
+function wordToCode(word){
+  const c = new Array(LMAX).fill(0);
+  let pos = 0;
+  for (let i = word.length - 1; i >= 0; i--){
+    const idx = charToIndex[word[i]];
+    if (idx === undefined) throw new Error("حرف غير مدعوم: " + word[i]);
+    c[pos++] = idx;
+  }
+  let C = 0n;
+  for (let i = 0; i < LMAX; i++){
+    C += BigInt(c[i]) * (BigInt(B) ** BigInt(i));
+  }
+  return C;
+}
+
+/* ============================================================
+   7) C → word
+============================================================ */
+function codeToWord(Cbig){
+  let C = BigInt(Cbig);
+  const digits = [];
+  for (let i = 0; i < LMAX; i++){
+    digits.push(Number(C % BigInt(B)));
+    C /= BigInt(B);
+  }
+  let w = "";
+  for (let i = LMAX - 1; i >= 0; i--){
+    w += indexToChar[digits[i]] || "";
+  }
+  return w;
+}
+
+/* ============================================================
+   8) Encode Text → Image (8 pixels per block)
+============================================================ */
+function encodeGeoFreq() {
+  const key = BigInt(document.getElementById("userKey").value || "0");
+  let text = normalizeArabic(document.getElementById("inputText").value.trim());
+  if (!text) return alert("الرجاء إدخال نص.");
+
+  const words = text.split(/\s+/);
+  const blocks = [];
+
+  for (const w of words) {
+    for (const b of splitWord(w)) {
+      blocks.push(b);
+    }
+  }
+
+  const size = 1024;
+  const HEADER_PIXELS = 4096;
+  const maxPixels = size * size;
+  const neededPixels = HEADER_PIXELS + blocks.length * 8;
+
+  if (neededPixels > maxPixels) {
+    alert("النص طويل جدًا لصورة واحدة 1024×1024.");
+    return;
+  }
+
+  const canvas = document.getElementById("geoCanvas");
+  canvas.width = size;
+  canvas.height = size;
+
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, size, size);
+
+  blocks.forEach((block, blockIndex) => {
+    const C  = wordToCode(block);
+    const C2 = C ^ key;
+
+    for (let byteIndex = 0; byteIndex < 8; byteIndex++) {
+      const byteVal = Number((C2 >> BigInt(8 * byteIndex)) & 0xFFn);
+
+      const p = HEADER_PIXELS + blockIndex * 8 + byteIndex;
+      const x = p % size;
+      const y = Math.floor(p / size);
+
+      const gray = 255 - byteVal;
+      const imgData = ctx.createImageData(1,1);
+      imgData.data[0] = gray;
+      imgData.data[1] = gray;
+      imgData.data[2] = gray;
+      imgData.data[3] = 255;
+      ctx.putImageData(imgData, x, y);
+    }
+  });
+
+  alert("✔ تم تحويل النص إلى صورة GeoFreq بنجاح!");
+}
+
+/* ============================================================
+   9) Save Image
+============================================================ */
+function saveImage() {
+  const canvas = document.getElementById("geoCanvas");
+  const url = canvas.toDataURL("image/png");
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "alm-geofreq-v5.0.png";
+  a.click();
+}
+
+/* ============================================================
+   10) Decode Image → Text
+============================================================ */
+function decodeGeoFreq() {
+  const file = document.getElementById("imageInput").files[0];
+  if (!file) return alert("اختر صورة.");
+
+  const key = BigInt(document.getElementById("userKey").value || "0");
+
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.getElementById("geoCanvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+
+    const size = canvas.width;
+    const HEADER_PIXELS = 4096;
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+    const totalPixels = size * size;
+    const blocksBytes = [];
+
+    for (let p = HEADER_PIXELS; p < totalPixels; p++) {
+      const x = p % size;
+      const y = Math.floor(p / size);
+      const i = (y * size + x) * 4;
+
+      const r = data[i];
+      if (r === 255) continue;
+
+      const gray = r;
+      const byteVal = 255 - gray;
+
+      const blockIndex = Math.floor((p - HEADER_PIXELS) / 8);
+      const byteIndex  = (p - HEADER_PIXELS) % 8;
+
+      if (!blocksBytes[blockIndex]) {
+        blocksBytes[blockIndex] = new Array(8).fill(0);
+      }
+      blocksBytes[blockIndex][byteIndex] = byteVal;
+    }
+
+    const blocks = [];
+
+    for (let blockIndex = 0; blockIndex < blocksBytes.length; blockIndex++) {
+      const bytes = blocksBytes[blockIndex];
+      if (!bytes) continue;
+
+      let C2 = 0n;
+      for (let byteIndex = 0; byteIndex < 8; byteIndex++) {
+        const b = BigInt(bytes[byteIndex] || 0);
+        C2 |= (b << BigInt(8 * byteIndex));
+      }
+
+      const C = C2 ^ key;
+      const block = codeToWord(C);
+      blocks.push(block);
+    }
+
+    const text = blocks.join(" ");
+    document.getElementById("outputText").textContent = text || "(لا توجد بيانات)";
+  };
+
+  img.src = URL.createObjectURL(file);
+}
+</script>
+
+</body>
+</html>
