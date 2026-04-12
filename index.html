@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>ALM GeoFreq v4.0 — 8‑Pixel Reversible Encoding</title>
+  <style>
+    body {
+      font-family: "Cairo", sans-serif;
+      background: #ffffff;
+      color: #222;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #0BA37F;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    .container {
+      padding: 20px;
+      max-width: 900px;
+      margin: auto;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 10px;
+      background: #0BA37F;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 17px;
+      cursor: pointer;
+    }
+    button:hover { background: #0a8c6c; }
+    textarea, input[type="file"], input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    #outputText {
+      margin-top: 15px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      min-height: 120px;
+      white-space: pre-wrap;
+    }
+    #canvasWrapper { margin-top: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+
+<header>ALM GeoFreq v4.0 — 8‑Pixel Reversible Encoding</header>
+
+<div class="container">
+
+  <h3>مفتاح المستخدم (عدد صحيح كبير):</h3>
+  <input id="userKey" type="text" value="123456789">
+
+  <h3>النص العربي:</h3>
+  <textarea id="inputText" rows="8" placeholder="اكتب نصًا عربيًا هنا..."></textarea>
+
+  <button onclick="encodeGeoFreq()">تحويل النص إلى صورة نقاط</button>
+
+  <div id="canvasWrapper">
+    <canvas id="geoCanvas"></canvas>
+    <button onclick="saveImage()">💾 حفظ الصورة</button>
+  </div>
+
+  <hr>
+
+  <h3>استعادة النص من صورة:</h3>
+  <input type="file" id="imageInput" accept="image/png">
+  <button onclick="decodeGeoFreq()">استعادة النص</button>
+
+  <h4>النص المستعاد:</h4>
+  <div id="outputText"></div>
+
+</div>
+
+<script>
+/* ========== 1) تطبيع العربية ========== */
+function normalizeArabic(s) {
+  return (s || "")
+    .replace(/[إأآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
+    .replace(/ة/g, "ه");
+}
+
+/* ========== 2) جدول الحروف (أساس 32) ========== */
+const B = 32;
+const LMAX = 12;
+
+const indexToChar = {
+  0:"",1:"ا",2:"ب",3:"ت",4:"ث",5:"ج",6:"ح",7:"خ",
+  8:"د",9:"ذ",10:"ر",11:"ز",12:"س",13:"ش",14:"ص",
+  15:"ض",16:"ط",17:"ظ",18:"ع",19:"غ",20:"ف",21:"ق",
+  22:"ك",23:"ل",24:"م",25:"ن",26:"ه",27:"و",28:"ي"
+};
+
+const charToIndex = {};
+for (const [i,ch] of Object.entries(indexToChar)) {
+  if (ch) charToIndex[ch] = parseInt(i, 10);
+}
+
+/* ========== 3) تقسيم الكلمة إلى بلوكات ========== */
+function splitWord(word) {
+  const blocks = [];
+  for (let i = 0; i < word.length; i += LMAX) {
+    blocks.push(word.slice(i, i + LMAX));
+  }
+  return blocks;
+}
+
+/* ========== 4) word → C (BigInt) ========== */
+function wordToCode(word){
+  const c = new Array(LMAX).fill(0);
+  let pos = 0;
+  for (let i = word.length - 1; i >= 0; i--){
+    const idx = charToIndex[word[i]];
+    if (idx === undefined) throw new Error("حرف غير مدعوم: " + word[i]);
+    c[pos++] = idx;
+  }
+  let C = 0n;
+  for (let i = 0; i < LMAX; i++){
+    C += BigInt(c[i]) * (BigInt(B) ** BigInt(i));
+  }
+  return C;
+}
+
+/* ========== 5) C → word ========== */
+function codeToWord(Cbig){
+  let C = BigInt(Cbig);
+  const digits = [];
+  for (let i = 0; i < LMAX; i++){
+    digits.push(Number(C % BigInt(B)));
+    C /= BigInt(B);
+  }
+  let w = "";
+  for (let i = LMAX - 1; i >= 0; i--){
+    w += indexToChar[digits[i]] || "";
+  }
+  return w;
+}
+
+/* ========== 6) ترميز النص إلى صورة (8 نقاط لكل بلوك) ========== */
+function encodeGeoFreq() {
+  const key = BigInt(document.getElementById("userKey").value || "0");
+  let text = normalizeArabic(document.getElementById("inputText").value.trim());
+  if (!text) return alert("الرجاء إدخال نص.");
+
+  const words = text.split(/\s+/);
+  const blocks = [];
+
+  for (const w of words) {
+    for (const b of splitWord(w)) {
+      blocks.push(b);
+    }
+  }
+
+  const size = 1024;
+  const maxPixels = size * size;
+  const neededPixels = blocks.length * 8;
+  if (neededPixels > maxPixels) {
+    alert("النص طويل جدًا لصورة واحدة 1024×1024 (يحتاج " + neededPixels + " نقطة).");
+    return;
+  }
+
+  const canvas = document.getElementById("geoCanvas");
+  canvas.width = size;
+  canvas.height = size;
+
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = "black";
+
+  blocks.forEach((block, blockIndex) => {
+    const C  = wordToCode(block);
+    const C2 = C ^ key; // 64‑bit مشفّر
+
+    for (let byteIndex = 0; byteIndex < 8; byteIndex++) {
+      const byteVal = Number((C2 >> BigInt(8 * byteIndex)) & 0xFFn); // 0..255
+
+      const p = blockIndex * 8 + byteIndex; // رقم البكسل التسلسلي
+      const x = p % size;
+      const y = Math.floor(p / size);
+
+      // نمثل قيمة البايت في سطوع البكسل: 0 = أسود، 255 = أبيض
+      const gray = 255 - byteVal; // عكسية لتمييزه عن الخلفية البيضاء
+      const imgData = ctx.createImageData(1,1);
+      imgData.data[0] = gray;
+      imgData.data[1] = gray;
+      imgData.data[2] = gray;
+      imgData.data[3] = 255;
+      ctx.putImageData(imgData, x, y);
+    }
+  });
+
+  alert("✔ تم تحويل النص إلى صورة نقاط (8 نقاط لكل بلوك) بنجاح!");
+}
+
+/* ========== 7) حفظ الصورة ========== */
+function saveImage() {
+  const canvas = document.getElementById("geoCanvas");
+  if (!canvas.width || !canvas.height) {
+    alert("لا توجد صورة لحفظها.");
+    return;
+  }
+  const url = canvas.toDataURL("image/png");
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "alm-geofreq-8px.png";
+  a.click();
+}
+
+/* ========== 8) فك الصورة إلى نص ========== */
+function decodeGeoFreq() {
+  const file = document.getElementById("imageInput").files[0];
+  if (!file) return alert("اختر صورة.");
+
+  const key = BigInt(document.getElementById("userKey").value || "0");
+
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.getElementById("geoCanvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+
+    const size = canvas.width;
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+    const totalPixels = size * size;
+    const maxBlockIndex = Math.floor(totalPixels / 8);
+    const blocksBytes = []; // لكل بلوك: مصفوفة 8 بايت
+
+    for (let p = 0; p < totalPixels; p++) {
+      const x = p % size;
+      const y = Math.floor(p / size);
+      const i = (y * size + x) * 4;
+
+      const r = data[i]; // r=g=b
+      if (r === 255) continue; // خلفية بيضاء = لا بيانات
+
+      const gray = r;
+      const byteVal = 255 - gray;
+
+      const blockIndex = Math.floor(p / 8);
+      const byteIndex  = p % 8;
+
+      if (!blocksBytes[blockIndex]) {
+        blocksBytes[blockIndex] = new Array(8).fill(0);
+      }
+      blocksBytes[blockIndex][byteIndex] = byteVal;
+    }
+
+    const blocks = [];
+
+    for (let blockIndex = 0; blockIndex < blocksBytes.length; blockIndex++) {
+      const bytes = blocksBytes[blockIndex];
+      if (!bytes) continue;
+
+      let C2 = 0n;
+      for (let byteIndex = 0; byteIndex < 8; byteIndex++) {
+        const b = BigInt(bytes[byteIndex] || 0);
+        C2 |= (b << BigInt(8 * byteIndex));
+      }
+
+      const C = C2 ^ key;
+      const block = codeToWord(C);
+      blocks.push(block);
+    }
+
+    const text = blocks.join(" ");
+    document.getElementById("outputText").textContent = text || "(لا توجد بلوكات مسترجعة)";
+  };
+
+  img.src = URL.createObjectURL(file);
+}
+</script>
+
+</body>
+</html>
