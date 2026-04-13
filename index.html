@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>ALM GeoFreq v4.4 — Fixed 1500‑Char Panels (1008 px)</title>
+<title>ALM GeoFreq v4.5 — Fixed 125‑Block Panels (No Shift)</title>
 
 <style>
 body {
@@ -59,7 +59,7 @@ textarea, input[type="file"], input[type="text"] {
 
 <body>
 
-<header>ALM GeoFreq v4.4 — Fixed 1500‑Char Panels (1008 px)</header>
+<header>ALM GeoFreq v4.5 — Fixed 125‑Block Panels (No Shift)</header>
 
 <div class="container">
 
@@ -69,7 +69,7 @@ textarea, input[type="file"], input[type="text"] {
   <h3>النص العربي:</h3>
   <textarea id="inputText" rows="8" placeholder="اكتب نصًا عربيًا هنا..."></textarea>
 
-  <button onclick="encode()">تحويل النص إلى صورة واحدة متعددة الأجزاء</button>
+  <button onclick="encode()">تحويل النص إلى صورة</button>
 
   <div id="canvasWrapper">
     <canvas id="geoCanvas"></canvas>
@@ -165,7 +165,7 @@ function codeToWord(Cbig){
 }
 
 /* ============================================================
-   Encode — Fixed 1500‑char Panels (1008 px)
+   Encode — Panels by BLOCKS (125 blocks per panel)
 ============================================================ */
 function encode() {
   const key = BigInt(document.getElementById("userKey").value || "0");
@@ -181,19 +181,28 @@ function encode() {
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, size, size);
 
-  const PANEL_CHARS = 1500;
-  const PANEL_PIXELS = 1008; // 8 بكسلات × 125 بلوك + 8 هيدر
+  const PANEL_PIXELS = 1008; // ثابت
   const PIXELS_PER_BLOCK = 8;
   const BYTES_PER_BLOCK = 8;
+  const MAX_BLOCKS_PER_PANEL = 125;
 
-  // تقسيم النص إلى Panels حسب 1500 حرف
-  const panels = [];
-  for (let i = 0; i < text.length; i += PANEL_CHARS) {
-    panels.push(text.slice(i, i + PANEL_CHARS));
+  /* 1) بناء كل البلوكات */
+  const allBlocks = [];
+  const words = text.split(/\s+/);
+  for (const w of words) {
+    for (const b of splitWord(w)) {
+      allBlocks.push(b);
+    }
   }
 
-  /* هيدر عالمي: عدد الـPanels */
-  const globalPanels = BigInt(panels.length);
+  /* 2) تقسيم البلوكات إلى Panels */
+  const panelsBlocks = [];
+  for (let i = 0; i < allBlocks.length; i += MAX_BLOCKS_PER_PANEL) {
+    panelsBlocks.push(allBlocks.slice(i, i + MAX_BLOCKS_PER_PANEL));
+  }
+
+  /* 3) هيدر عالمي */
+  const globalPanels = BigInt(panelsBlocks.length);
   for (let i = 0; i < 8; i++) {
     const byteVal = Number((globalPanels >> BigInt(8 * i)) & 0xFFn);
     const x = i % size;
@@ -204,18 +213,10 @@ function encode() {
     ctx.putImageData(img, x, y);
   }
 
+  /* 4) كتابة Panels */
   let panelStart = 8;
 
-  panels.forEach(panelText => {
-    // بناء بلوكات هذا الـPanel
-    const blocks = [];
-    const words = panelText.split(/\s+/);
-    for (const w of words) {
-      for (const b of splitWord(w)) {
-        blocks.push(b);
-      }
-    }
-
+  panelsBlocks.forEach(blocks => {
     const blocksCount = BigInt(blocks.length);
 
     /* هيدر الـPanel */
@@ -261,7 +262,7 @@ function saveImage() {
   const url = canvas.toDataURL("image/png");
   const a = document.createElement("a");
   a.href = url;
-  a.download = "alm-geofreq-v4.4.png";
+  a.download = "alm-geofreq-v4.5.png";
   a.click();
 }
 
