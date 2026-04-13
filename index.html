@@ -165,7 +165,7 @@ function codeToWord(Cbig){
 }
 
 /* ============================================================
-   Encode — Block‑based Panels (max 125 blocks per 1008 px)
+   Encode — FIXED 1500‑CHAR PANELS + MAX 125 BLOCKS
 ============================================================ */
 function encode() {
   const key = BigInt(document.getElementById("userKey").value || "0");
@@ -181,28 +181,20 @@ function encode() {
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, size, size);
 
-  const PANEL_PIXELS = 1008;          // 8 هيدر + 125 بلوك × 8 بكسل
+  const PANEL_CHARS = 1500;
+  const PANEL_PIXELS = 1008;
   const PIXELS_PER_BLOCK = 8;
   const BYTES_PER_BLOCK = 8;
   const MAX_BLOCKS_PER_PANEL = 125;
 
-  // 1) بناء كل البلوكات من النص كاملًا
-  const allBlocks = [];
-  const words = text.split(/\s+/);
-  for (const w of words) {
-    for (const b of splitWord(w)) {
-      allBlocks.push(b);
-    }
+  // تقسيم النص إلى Panels حسب 1500 حرف
+  const panels = [];
+  for (let i = 0; i < text.length; i += PANEL_CHARS) {
+    panels.push(text.slice(i, i + PANEL_CHARS));
   }
 
-  // 2) تقسيم البلوكات إلى Panels، كل Panel ≤ 125 بلوك
-  const panelsBlocks = [];
-  for (let i = 0; i < allBlocks.length; i += MAX_BLOCKS_PER_PANEL) {
-    panelsBlocks.push(allBlocks.slice(i, i + MAX_BLOCKS_PER_PANEL));
-  }
-
-  // 3) هيدر عالمي: عدد الـPanels
-  const globalPanels = BigInt(panelsBlocks.length);
+  /* هيدر عالمي */
+  const globalPanels = BigInt(panels.length);
   for (let i = 0; i < 8; i++) {
     const byteVal = Number((globalPanels >> BigInt(8 * i)) & 0xFFn);
     const x = i % size;
@@ -213,13 +205,27 @@ function encode() {
     ctx.putImageData(img, x, y);
   }
 
-  // 4) كتابة Panels
   let panelStart = 8;
 
-  panelsBlocks.forEach(blocks => {
+  panels.forEach(panelText => {
+
+    // بناء بلوكات هذا الـPanel
+    let blocks = [];
+    const words = panelText.split(/\s+/);
+    for (const w of words) {
+      for (const b of splitWord(w)) {
+        blocks.push(b);
+      }
+    }
+
+    // ⭐⭐ أهم تعديل: قصّ البلوكات إلى 125 فقط ⭐⭐
+    if (blocks.length > MAX_BLOCKS_PER_PANEL) {
+      blocks = blocks.slice(0, MAX_BLOCKS_PER_PANEL);
+    }
+
     const blocksCount = BigInt(blocks.length);
 
-    // هيدر الـPanel
+    /* هيدر الـPanel */
     for (let i = 0; i < 8; i++) {
       const byteVal = Number((blocksCount >> BigInt(8 * i)) & 0xFFn);
       const p = panelStart + i;
@@ -231,7 +237,7 @@ function encode() {
       ctx.putImageData(img, x, y);
     }
 
-    // كتابة البلوكات
+    /* كتابة البلوكات */
     for (let bi = 0; bi < blocks.length; bi++) {
       const C  = wordToCode(blocks[bi]);
       const C2 = C ^ key;
@@ -291,7 +297,7 @@ function decode() {
     const PIXELS_PER_BLOCK = 8;
     const BYTES_PER_BLOCK = 8;
 
-    // قراءة عدد الـPanels
+    /* قراءة عدد الـPanels */
     let panelsCount = 0n;
     for (let i = 0; i < 8; i++) {
       const x = i % size;
@@ -309,7 +315,7 @@ function decode() {
 
     for (let pi = 0; pi < totalPanels; pi++) {
 
-      // قراءة عدد البلوكات في هذا الـPanel
+      /* قراءة عدد البلوكات */
       let blocksCount = 0n;
       for (let i = 0; i < 8; i++) {
         const p = panelStart + i;
@@ -323,7 +329,7 @@ function decode() {
 
       const totalBlocks = Number(blocksCount);
 
-      // قراءة البلوكات
+      /* قراءة البلوكات */
       for (let bi = 0; bi < totalBlocks; bi++) {
         let C2 = 0n;
         for (let byteIndex = 0; byteIndex < BYTES_PER_BLOCK; byteIndex++) {
