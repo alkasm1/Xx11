@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>ALM GeoFreq v4.4 — Block Panels (1008 px per row)</title>
+<title>ALM GeoFreq v4.4 — Fixed 1500‑Char Panels (1008 px)</title>
 
 <style>
 body {
@@ -59,7 +59,7 @@ textarea, input[type="file"], input[type="text"] {
 
 <body>
 
-<header>ALM GeoFreq v4.4 — Block Panels (1008 px per row)</header>
+<header>ALM GeoFreq v4.4 — Fixed 1500‑Char Panels (1008 px)</header>
 
 <div class="container">
 
@@ -69,7 +69,7 @@ textarea, input[type="file"], input[type="text"] {
   <h3>النص العربي:</h3>
   <textarea id="inputText" rows="8" placeholder="اكتب نصًا عربيًا هنا..."></textarea>
 
-  <button onclick="encode()">تحويل النص إلى صورة</button>
+  <button onclick="encode()">تحويل النص إلى صورة واحدة متعددة الأجزاء</button>
 
   <div id="canvasWrapper">
     <canvas id="geoCanvas"></canvas>
@@ -88,6 +88,9 @@ textarea, input[type="file"], input[type="text"] {
 </div>
 
 <script>
+/* ============================================================
+   Normalization
+============================================================ */
 function normalizeArabic(s) {
   return (s || "")
     .replace(/[إأآ]/g, "ا")
@@ -97,6 +100,9 @@ function normalizeArabic(s) {
     .replace(/ة/g, "ه");
 }
 
+/* ============================================================
+   Base‑32 Alphabet (v4.1)
+============================================================ */
 const B = 32;
 const LMAX = 12;
 
@@ -112,6 +118,9 @@ for (const [i,ch] of Object.entries(indexToChar)) {
   if (ch) charToIndex[ch] = parseInt(i, 10);
 }
 
+/* ============================================================
+   Split word into blocks
+============================================================ */
 function splitWord(word) {
   const blocks = [];
   for (let i = 0; i < word.length; i += LMAX) {
@@ -120,6 +129,9 @@ function splitWord(word) {
   return blocks;
 }
 
+/* ============================================================
+   word → C
+============================================================ */
 function wordToCode(word){
   const c = new Array(LMAX).fill(0);
   let pos = 0;
@@ -130,11 +142,15 @@ function wordToCode(word){
   }
   let C = 0n;
   for (let i = 0; i < LMAX; i++){
+    // التصحيح هنا: استخدام الأسّ الصحيح
     C += BigInt(c[i]) * (BigInt(B) ** BigInt(i));
   }
   return C;
 }
 
+/* ============================================================
+   C → word
+============================================================ */
 function codeToWord(Cbig){
   let C = BigInt(Cbig);
   const digits = [];
@@ -149,7 +165,9 @@ function codeToWord(Cbig){
   return w;
 }
 
-/* =============== ENCODE =============== */
+/* ============================================================
+   Encode — Fixed 1500‑char Panels (1008 px)
+============================================================ */
 function encode() {
   const key = BigInt(document.getElementById("userKey").value || "0");
   let text = normalizeArabic(document.getElementById("inputText").value.trim());
@@ -164,64 +182,65 @@ function encode() {
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, size, size);
 
-  const PANEL_PIXELS = 1008;      // 8 هيدر + 125 بلوك × 8
-  const PIXELS_PER_BLOCK = 8;
-  const BYTES_PER_BLOCK = 8;
-  const MAX_BLOCKS_PER_PANEL = 125;
+  const PANEL_CHARS = 1500;
+  const PANEL_PIXELS = 1008; // 8 بكسلات × 125 بلوك + 8 هيدر
+  const PIXELSPERBLOCK = 8;
+  const BYTESPERBLOCK = 8;
 
-  // 1) كل البلوكات من النص كاملًا
-  const allBlocks = [];
-  const words = text.split(/\s+/);
-  for (const w of words) {
-    for (const b of splitWord(w)) {
-      allBlocks.push(b);
-    }
+  // تقسيم النص إلى Panels حسب 1500 حرف
+  const panels = [];
+  for (let i = 0; i < text.length; i += PANEL_CHARS) {
+    panels.push(text.slice(i, i + PANEL_CHARS));
   }
 
-  // 2) تقسيم البلوكات إلى Panels (كل Panel ≤ 125 بلوك)
-  const panelsBlocks = [];
-  for (let i = 0; i < allBlocks.length; i += MAX_BLOCKS_PER_PANEL) {
-    panelsBlocks.push(allBlocks.slice(i, i + MAX_BLOCKS_PER_PANEL));
-  }
-
-  // 3) هيدر عالمي: عدد الـPanels
-  const globalPanels = BigInt(panelsBlocks.length);
+  // هيدر عالمي: عدد الـPanels
+  const globalPanels = BigInt(panels.length);
   for (let i = 0; i < 8; i++) {
     const byteVal = Number((globalPanels >> BigInt(8 * i)) & 0xFFn);
-    const x = i;
-    const y = 0;
+    const x = i % size;
+    const y = Math.floor(i / size);
     const gray = 255 - byteVal;
     const img = ctx.createImageData(1,1);
     img.data[0]=gray; img.data[1]=gray; img.data[2]=gray; img.data[3]=255;
     ctx.putImageData(img, x, y);
   }
 
-  // 4) كل Panel في صف مستقل
-  let row = 1;
+  let panelStart = 8;
 
-  panelsBlocks.forEach(blocks => {
+  panels.forEach(panelText => {
+    // بناء بلوكات هذا الـPanel
+    const blocks = [];
+    const words = panelText.split(/\s+/);
+    for (const w of words) {
+      for (const b of splitWord(w)) {
+        blocks.push(b);
+      }
+    }
+
     const blocksCount = BigInt(blocks.length);
 
     // هيدر الـPanel
     for (let i = 0; i < 8; i++) {
       const byteVal = Number((blocksCount >> BigInt(8 * i)) & 0xFFn);
-      const x = i;
-      const y = row;
+      const p = panelStart + i;
+      const x = p % size;
+      const y = Math.floor(p / size);
       const gray = 255 - byteVal;
       const img = ctx.createImageData(1,1);
       img.data[0]=gray; img.data[1]=gray; img.data[2]=gray; img.data[3]=255;
       ctx.putImageData(img, x, y);
     }
 
-    // البلوكات
+    // كتابة البلوكات
     for (let bi = 0; bi < blocks.length; bi++) {
       const C  = wordToCode(blocks[bi]);
       const C2 = C ^ key;
 
-      for (let byteIndex = 0; byteIndex < BYTES_PER_BLOCK; byteIndex++) {
+      for (let byteIndex = 0; byteIndex < BYTESPERBLOCK; byteIndex++) {
         const byteVal = Number((C2 >> BigInt(8 * byteIndex)) & 0xFFn);
-        const x = 8 + bi * PIXELS_PER_BLOCK + byteIndex;
-        const y = row;
+        const p = panelStart + 8 + bi * PIXELSPERBLOCK + byteIndex;
+        const x = p % size;
+        const y = Math.floor(p / size);
         const gray = 255 - byteVal;
         const img = ctx.createImageData(1,1);
         img.data[0]=gray; img.data[1]=gray; img.data[2]=gray; img.data[3]=255;
@@ -229,13 +248,15 @@ function encode() {
       }
     }
 
-    row++;
+    panelStart += PANEL_PIXELS;
   });
 
   alert("✔ تم إنشاء الصورة بنجاح!");
 }
 
-/* =============== SAVE =============== */
+/* ============================================================
+   Save
+============================================================ */
 function saveImage() {
   const canvas = document.getElementById("geoCanvas");
   const url = canvas.toDataURL("image/png");
@@ -245,7 +266,9 @@ function saveImage() {
   a.click();
 }
 
-/* =============== DECODE =============== */
+/* ============================================================
+   Decode
+============================================================ */
 function decode() {
   const file = document.getElementById("imageInput").files[0];
   if (!file) return alert("اختر صورة.");
@@ -264,14 +287,15 @@ function decode() {
     const size = canvas.width;
     const data = ctx.getImageData(0, 0, size, size).data;
 
-    const PIXELS_PER_BLOCK = 8;
-    const BYTES_PER_BLOCK = 8;
+    const PANEL_PIXELS = 1008;
+    const PIXELSPERBLOCK = 8;
+    const BYTESPERBLOCK = 8;
 
-    // عدد الـPanels
+    // قراءة عدد الـPanels
     let panelsCount = 0n;
     for (let i = 0; i < 8; i++) {
-      const x = i;
-      const y = 0;
+      const x = i % size;
+      const y = Math.floor(i / size);
       const idx = (y * size + x) * 4;
       const r = data[idx];
       const byteVal = 255 - r;
@@ -281,14 +305,16 @@ function decode() {
     const totalPanels = Number(panelsCount);
     let finalBlocks = [];
 
-    // قراءة كل Panel من صف مستقل
-    for (let row = 1; row <= totalPanels; row++) {
+    let panelStart = 8;
 
-      // عدد البلوكات
+    for (let pi = 0; pi < totalPanels; pi++) {
+
+      // قراءة عدد البلوكات
       let blocksCount = 0n;
       for (let i = 0; i < 8; i++) {
-        const x = i;
-        const y = row;
+        const p = panelStart + i;
+        const x = p % size;
+        const y = Math.floor(p / size);
         const idx = (y * size + x) * 4;
         const r = data[idx];
         const byteVal = 255 - r;
@@ -297,12 +323,13 @@ function decode() {
 
       const totalBlocks = Number(blocksCount);
 
-      // البلوكات
+      // قراءة البلوكات
       for (let bi = 0; bi < totalBlocks; bi++) {
         let C2 = 0n;
-        for (let byteIndex = 0; byteIndex < BYTES_PER_BLOCK; byteIndex++) {
-          const x = 8 + bi * PIXELS_PER_BLOCK + byteIndex;
-          const y = row;
+        for (let byteIndex = 0; byteIndex < BYTESPERBLOCK; byteIndex++) {
+          const p = panelStart + 8 + bi * PIXELSPERBLOCK + byteIndex;
+          const x = p % size;
+          const y = Math.floor(p / size);
           const idx = (y * size + x) * 4;
           const r = data[idx];
           const byteVal = 255 - r;
@@ -311,6 +338,8 @@ function decode() {
         const C = C2 ^ key;
         finalBlocks.push(codeToWord(C));
       }
+
+      panelStart += PANEL_PIXELS;
     }
 
     document.getElementById("outputText").textContent =
