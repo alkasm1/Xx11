@@ -6,233 +6,236 @@
 
 <style>
 body {
-  font-family: Arial;
-  background: #fff;
+  font-family: "Cairo", sans-serif;
+  background: #ffffff;
+  color: #222;
   margin: 0;
+}
+header {
+  background: #0BA37F;
+  color: white;
+  padding: 15px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: bold;
+}
+.container {
   padding: 20px;
+  max-width: 900px;
+  margin: auto;
 }
-textarea, input, button {
+button {
   width: 100%;
+  padding: 14px;
   margin-top: 10px;
-  padding: 10px;
+  background: #0BA37F;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 17px;
+  cursor: pointer;
 }
-canvas {
-  margin-top: 20px;
+textarea, input {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+}
+#outputText {
+  margin-top: 15px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  min-height: 120px;
+  white-space: pre-wrap;
 }
 </style>
 </head>
 
 <body>
 
-<h2>ALM GeoFreq v5</h2>
+<header>ALM GeoFreq v5</header>
+
+<div class="container">
 
 <input id="userKey" value="123456789">
+
 <textarea id="inputText" rows="6"></textarea>
 
 <button onclick="encode()">تحويل إلى صورة</button>
-<button onclick="decode()">استعادة النص</button>
-
-<input type="file" id="imageInput">
 
 <canvas id="canvas"></canvas>
+<button onclick="saveImage()">💾 حفظ الصورة</button>
 
-<div id="output"></div>
+<hr>
+
+<input type="file" id="imageInput" accept="image/png">
+<button onclick="decode()">استعادة النص</button>
+
+<div id="outputText"></div>
+
+</div>
 
 <script>
-// =========================
-// إعدادات
-// =========================
-const B = 32;
-const LMAX = 12;
-const SIZE = 1024;
-const HEADER = 16; // 8 بايت لطول البيانات
+const B=32, LMAX=12, SIZE=1024, HEADER=16;
 
-// =========================
-// جدول الحروف
-// =========================
-const indexToChar = {
-  1:"ا",2:"ب",3:"ت",4:"ث",5:"ج",6:"ح",7:"خ",
-  8:"د",9:"ذ",10:"ر",11:"ز",12:"س",13:"ش",
-  14:"ص",15:"ض",16:"ط",17:"ظ",18:"ع",19:"غ",
-  20:"ف",21:"ق",22:"ك",23:"ل",24:"م",25:"ن",
-  26:"ه",27:"و",28:"ي"
+const indexToChar={
+1:"ا",2:"ب",3:"ت",4:"ث",5:"ج",6:"ح",7:"خ",8:"د",9:"ذ",
+10:"ر",11:"ز",12:"س",13:"ش",14:"ص",15:"ض",16:"ط",
+17:"ظ",18:"ع",19:"غ",20:"ف",21:"ق",22:"ك",23:"ل",
+24:"م",25:"ن",26:"ه",27:"و",28:"ي"
 };
 
-const charToIndex = {};
-for (let k in indexToChar) charToIndex[indexToChar[k]] = Number(k);
+const charToIndex={};
+for(let k in indexToChar) charToIndex[indexToChar[k]]=Number(k);
 
-// =========================
-// تنظيف النص
-// =========================
-function normalizeArabic(s) {
-  return s.replace(/[إأآ]/g,"ا")
-          .replace(/ى/g,"ي")
-          .replace(/ؤ/g,"و")
-          .replace(/ئ/g,"ي")
-          .replace(/ة/g,"ه");
+function normalizeArabic(s){
+return s.replace(/[إأآ]/g,"ا")
+.replace(/ى/g,"ي")
+.replace(/ؤ/g,"و")
+.replace(/ئ/g,"ي")
+.replace(/ة/g,"ه");
 }
 
-function cleanText(text) {
-  return text.split("")
-    .filter(ch => charToIndex[ch] || ch === " ")
-    .join("")
-    .replace(/\s+/g," ")
-    .trim();
+function cleanText(t){
+return t.split("").filter(c=>charToIndex[c]||c===" ")
+.join("").replace(/\s+/g," ").trim();
 }
 
-// =========================
-// تحويل كلمة → رقم
-// =========================
-function wordToCode(word){
-  const c = new Array(LMAX).fill(0);
-  let pos = 0;
-
-  for (let i = word.length-1; i >= 0; i--) {
-    const idx = charToIndex[word[i]];
-    if (idx === undefined) continue;
-    c[pos++] = idx;
-    if (pos >= LMAX) break;
-  }
-
-  let C = 0n;
-  for (let i=0;i<LMAX;i++){
-    C += BigInt(c[i]) * (BigInt(B)**BigInt(i));
-  }
-  return C;
+function wordToCode(w){
+const c=new Array(LMAX).fill(0);
+let p=0;
+for(let i=w.length-1;i>=0;i--){
+const idx=charToIndex[w[i]];
+if(idx===undefined) continue;
+c[p++]=idx;
+if(p>=LMAX) break;
+}
+let C=0n;
+for(let i=0;i<LMAX;i++){
+C+=BigInt(c[i])*(BigInt(B)**BigInt(i));
+}
+return C;
 }
 
-// =========================
-// رقم → كلمة
-// =========================
 function codeToWord(C){
-  let out = "";
-  for (let i=0;i<LMAX;i++){
-    const d = Number(C % BigInt(B));
-    C /= BigInt(B);
-    if (d) out = indexToChar[d] + out;
-  }
-  return out;
+let out="";
+for(let i=0;i<LMAX;i++){
+const d=Number(C%BigInt(B));
+C/=BigInt(B);
+if(d) out=indexToChar[d]+out;
+}
+return out;
 }
 
-// =========================
-// تقسيم
-// =========================
 function splitWord(w){
-  const arr=[];
-  for(let i=0;i<w.length;i+=LMAX){
-    arr.push(w.slice(i,i+LMAX));
-  }
-  return arr;
+const a=[];
+for(let i=0;i<w.length;i+=LMAX){
+a.push(w.slice(i,i+LMAX));
+}
+return a;
 }
 
-// =========================
-// ENCODE
-// =========================
+function drawPixel(ctx,p,g){
+const x=p%SIZE;
+const y=Math.floor(p/SIZE);
+const img=ctx.createImageData(1,1);
+img.data[0]=g;
+img.data[1]=g;
+img.data[2]=g;
+img.data[3]=255;
+ctx.putImageData(img,x,y);
+}
+
+// ================= ENCODE =================
 function encode(){
-  let text = normalizeArabic(document.getElementById("inputText").value);
-  text = cleanText(text);
+let text=normalizeArabic(document.getElementById("inputText").value);
+text=cleanText(text);
 
-  const key = BigInt(document.getElementById("userKey").value || 0);
+const key=BigInt(document.getElementById("userKey").value||0);
 
-  const words = text.split(" ");
-  const blocks=[];
+const words=text.split(" ");
+const blocks=[];
+words.forEach(w=>{
+splitWord(w).forEach(b=>blocks.push(b));
+});
 
-  words.forEach(w=>{
-    splitWord(w).forEach(b=>blocks.push(b));
-  });
+const canvas=document.getElementById("canvas");
+canvas.width=SIZE;
+canvas.height=SIZE;
+const ctx=canvas.getContext("2d");
 
-  const canvas = document.getElementById("canvas");
-  canvas.width = SIZE;
-  canvas.height = SIZE;
-  const ctx = canvas.getContext("2d");
+ctx.fillStyle="white";
+ctx.fillRect(0,0,SIZE,SIZE);
 
-  ctx.fillStyle="white";
-  ctx.fillRect(0,0,SIZE,SIZE);
-
-  // تخزين عدد البلوكات
-  let count = BigInt(blocks.length);
-  for(let i=0;i<8;i++){
-    const val = Number((count >> BigInt(8*i)) & 0xFFn);
-    drawPixel(ctx,i,255-val);
-  }
-
-  // كتابة البيانات
-  blocks.forEach((b,bi)=>{
-    let C = wordToCode(b) ^ key;
-
-    for(let j=0;j<8;j++){
-      const byte = Number((C >> BigInt(8*j)) & 0xFFn);
-      const p = HEADER + bi*8 + j;
-      drawPixel(ctx,p,255-byte);
-    }
-  });
-
-  alert("تم التشفير");
+// عدد البلوكات
+let count=BigInt(blocks.length);
+for(let i=0;i<8;i++){
+const v=Number((count>>BigInt(8*i))&0xFFn);
+drawPixel(ctx,i,255-v);
 }
 
-// =========================
-// DECODE
-// =========================
+// البيانات
+blocks.forEach((b,bi)=>{
+let C=wordToCode(b)^key;
+for(let j=0;j<8;j++){
+const byte=Number((C>>BigInt(8*j))&0xFFn);
+const p=HEADER+bi*8+j;
+drawPixel(ctx,p,255-byte);
+}
+});
+
+alert("تم إنشاء الصورة بنجاح");
+}
+
+// ================= SAVE =================
+function saveImage(){
+const canvas=document.getElementById("canvas");
+const a=document.createElement("a");
+a.href=canvas.toDataURL("image/png");
+a.download="alm-v5.png";
+a.click();
+}
+
+// ================= DECODE =================
 function decode(){
-  const file = document.getElementById("imageInput").files[0];
-  if(!file) return;
+const file=document.getElementById("imageInput").files[0];
+if(!file) return;
 
-  const key = BigInt(document.getElementById("userKey").value || 0);
+const key=BigInt(document.getElementById("userKey").value||0);
 
-  const img = new Image();
-  img.onload = ()=>{
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
+const img=new Image();
+img.onload=()=>{
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
 
-    canvas.width = img.width;
-    canvas.height = img.height;
+canvas.width=img.width;
+canvas.height=img.height;
+ctx.drawImage(img,0,0);
 
-    ctx.drawImage(img,0,0);
+const data=ctx.getImageData(0,0,canvas.width,canvas.height).data;
 
-    const data = ctx.getImageData(0,0,canvas.width,canvas.height).data;
-
-    // قراءة عدد البلوكات
-    let count=0n;
-    for(let i=0;i<8;i++){
-      const val = 255 - data[i*4];
-      count |= (BigInt(val) << BigInt(8*i));
-    }
-
-    const blocks=[];
-
-    for(let bi=0; bi<Number(count); bi++){
-      let C=0n;
-
-      for(let j=0;j<8;j++){
-        const p = HEADER + bi*8 + j;
-        const val = 255 - data[p*4];
-        C |= (BigInt(val) << BigInt(8*j));
-      }
-
-      const word = codeToWord(C ^ key);
-      if(word) blocks.push(word);
-    }
-
-    document.getElementById("output").innerText = blocks.join(" ");
-  };
-
-  img.src = URL.createObjectURL(file);
+// قراءة العدد
+let count=0n;
+for(let i=0;i<8;i++){
+const v=255-data[i*4];
+count|=(BigInt(v)<<BigInt(8*i));
 }
 
-// =========================
-// رسم بكسل
-// =========================
-function drawPixel(ctx,p,gray){
-  const x = p % SIZE;
-  const y = Math.floor(p / SIZE);
+const blocks=[];
+for(let bi=0;bi<Number(count);bi++){
+let C=0n;
+for(let j=0;j<8;j++){
+const p=HEADER+bi*8+j;
+const v=255-data[p*4];
+C|=(BigInt(v)<<BigInt(8*j));
+}
+const w=codeToWord(C^key);
+if(w) blocks.push(w);
+}
 
-  const img = ctx.createImageData(1,1);
-  img.data[0]=gray;
-  img.data[1]=gray;
-  img.data[2]=gray;
-  img.data[3]=255;
+document.getElementById("outputText").innerText=blocks.join(" ");
+};
 
-  ctx.putImageData(img,x,y);
+img.src=URL.createObjectURL(file);
 }
 </script>
 
