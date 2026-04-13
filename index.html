@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>ALM GeoFreq v4.6 — Row‑Based Panels (1008 px per row)</title>
+<title>ALM GeoFreq v4.4 — Block‑Based Panels (1008 px)</title>
 
 <style>
 body {
@@ -59,7 +59,7 @@ textarea, input[type="file"], input[type="text"] {
 
 <body>
 
-<header>ALM GeoFreq v4.6 — Row‑Based Panels (1008 px per row)</header>
+<header>ALM GeoFreq v4.4 — Block‑Based Panels (1008 px)</header>
 
 <div class="container">
 
@@ -165,7 +165,7 @@ function codeToWord(Cbig){
 }
 
 /* ============================================================
-   Encode — Row‑Based Panels (1008 px per row)
+   Encode — Panels by BLOCKS (125 blocks per panel)
 ============================================================ */
 function encode() {
   const key = BigInt(document.getElementById("userKey").value || "0");
@@ -181,7 +181,7 @@ function encode() {
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, size, size);
 
-  const PANEL_PIXELS = 1008; // ثابت
+  const PANEL_PIXELS = 1008;          // 8 هيدر + 125 بلوك × 8 بكسل
   const PIXELS_PER_BLOCK = 8;
   const BYTES_PER_BLOCK = 8;
   const MAX_BLOCKS_PER_PANEL = 125;
@@ -205,16 +205,16 @@ function encode() {
   const globalPanels = BigInt(panelsBlocks.length);
   for (let i = 0; i < 8; i++) {
     const byteVal = Number((globalPanels >> BigInt(8 * i)) & 0xFFn);
-    const x = i;
-    const y = 0;
+    const x = i % size;
+    const y = Math.floor(i / size);
     const gray = 255 - byteVal;
     const img = ctx.createImageData(1,1);
     img.data[0]=gray; img.data[1]=gray; img.data[2]=gray; img.data[3]=255;
     ctx.putImageData(img, x, y);
   }
 
-  /* 4) كتابة Panels — كل Panel في صف مستقل */
-  let row = 1;
+  /* 4) كتابة Panels */
+  let panelStart = 8;
 
   panelsBlocks.forEach(blocks => {
     const blocksCount = BigInt(blocks.length);
@@ -222,8 +222,9 @@ function encode() {
     /* هيدر الـPanel */
     for (let i = 0; i < 8; i++) {
       const byteVal = Number((blocksCount >> BigInt(8 * i)) & 0xFFn);
-      const x = i;
-      const y = row;
+      const p = panelStart + i;
+      const x = p % size;
+      const y = Math.floor(p / size);
       const gray = 255 - byteVal;
       const img = ctx.createImageData(1,1);
       img.data[0]=gray; img.data[1]=gray; img.data[2]=gray; img.data[3]=255;
@@ -237,8 +238,9 @@ function encode() {
 
       for (let byteIndex = 0; byteIndex < BYTES_PER_BLOCK; byteIndex++) {
         const byteVal = Number((C2 >> BigInt(8 * byteIndex)) & 0xFFn);
-        const x = 8 + bi * PIXELS_PER_BLOCK + byteIndex;
-        const y = row;
+        const p = panelStart + 8 + bi * PIXELS_PER_BLOCK + byteIndex;
+        const x = p % size;
+        const y = Math.floor(p / size);
         const gray = 255 - byteVal;
         const img = ctx.createImageData(1,1);
         img.data[0]=gray; img.data[1]=gray; img.data[2]=gray; img.data[3]=255;
@@ -246,7 +248,7 @@ function encode() {
       }
     }
 
-    row++;
+    panelStart += PANEL_PIXELS;
   });
 
   alert("✔ تم إنشاء الصورة بنجاح!");
@@ -260,12 +262,12 @@ function saveImage() {
   const url = canvas.toDataURL("image/png");
   const a = document.createElement("a");
   a.href = url;
-  a.download = "alm-geofreq-v4.6.png";
+  a.download = "alm-geofreq-v4.4.png";
   a.click();
 }
 
 /* ============================================================
-   Decode — Row‑Based Panels
+   Decode
 ============================================================ */
 function decode() {
   const file = document.getElementById("imageInput").files[0];
@@ -285,14 +287,15 @@ function decode() {
     const size = canvas.width;
     const data = ctx.getImageData(0, 0, size, size).data;
 
+    const PANEL_PIXELS = 1008;
     const PIXELS_PER_BLOCK = 8;
     const BYTES_PER_BLOCK = 8;
 
     /* قراءة عدد الـPanels */
     let panelsCount = 0n;
     for (let i = 0; i < 8; i++) {
-      const x = i;
-      const y = 0;
+      const x = i % size;
+      const y = Math.floor(i / size);
       const idx = (y * size + x) * 4;
       const r = data[idx];
       const byteVal = 255 - r;
@@ -302,14 +305,16 @@ function decode() {
     const totalPanels = Number(panelsCount);
     let finalBlocks = [];
 
-    /* قراءة Panels */
-    for (let row = 1; row <= totalPanels; row++) {
+    let panelStart = 8;
+
+    for (let pi = 0; pi < totalPanels; pi++) {
 
       /* قراءة عدد البلوكات */
       let blocksCount = 0n;
       for (let i = 0; i < 8; i++) {
-        const x = i;
-        const y = row;
+        const p = panelStart + i;
+        const x = p % size;
+        const y = Math.floor(p / size);
         const idx = (y * size + x) * 4;
         const r = data[idx];
         const byteVal = 255 - r;
@@ -322,8 +327,9 @@ function decode() {
       for (let bi = 0; bi < totalBlocks; bi++) {
         let C2 = 0n;
         for (let byteIndex = 0; byteIndex < BYTES_PER_BLOCK; byteIndex++) {
-          const x = 8 + bi * PIXELS_PER_BLOCK + byteIndex;
-          const y = row;
+          const p = panelStart + 8 + bi * PIXELS_PER_BLOCK + byteIndex;
+          const x = p % size;
+          const y = Math.floor(p / size);
           const idx = (y * size + x) * 4;
           const r = data[idx];
           const byteVal = 255 - r;
@@ -332,6 +338,8 @@ function decode() {
         const C = C2 ^ key;
         finalBlocks.push(codeToWord(C));
       }
+
+      panelStart += PANEL_PIXELS;
     }
 
     document.getElementById("outputText").textContent =
