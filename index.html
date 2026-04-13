@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>ALM GeoFreq v4.3 — Full Decode Fix</title>
+<title>ALM GeoFreq v4.4 — BlockCount Header</title>
 
 <style>
 body {
@@ -59,7 +59,7 @@ textarea, input[type="file"], input[type="text"] {
 
 <body>
 
-<header>ALM GeoFreq v4.3 — Full Decode Fix</header>
+<header>ALM GeoFreq v4.4 — BlockCount Header</header>
 
 <div class="container">
 
@@ -88,9 +88,7 @@ textarea, input[type="file"], input[type="text"] {
 </div>
 
 <script>
-/* ============================================================
-   Arabic Normalization
-============================================================ */
+/* ===================== 1) تطبيع العربية ===================== */
 function normalizeArabic(s) {
   return (s || "")
     .replace(/[إأآ]/g, "ا")
@@ -100,9 +98,7 @@ function normalizeArabic(s) {
     .replace(/ة/g, "ه");
 }
 
-/* ============================================================
-   Alphabet Table (Base‑32)
-============================================================ */
+/* ===================== 2) جدول الحروف (أساس 32) ===================== */
 const B = 32;
 const LMAX = 12;
 
@@ -118,9 +114,7 @@ for (const [i,ch] of Object.entries(indexToChar)) {
   if (ch) charToIndex[ch] = parseInt(i, 10);
 }
 
-/* ============================================================
-   Split Word into Blocks
-============================================================ */
+/* ===================== 3) تقسيم الكلمة إلى بلوكات ===================== */
 function splitWord(word) {
   const blocks = [];
   for (let i = 0; i < word.length; i += LMAX) {
@@ -129,9 +123,7 @@ function splitWord(word) {
   return blocks;
 }
 
-/* ============================================================
-   word → C (BigInt)
-============================================================ */
+/* ===================== 4) word → C (BigInt) ===================== */
 function wordToCode(word){
   const c = new Array(LMAX).fill(0);
   let pos = 0;
@@ -147,9 +139,7 @@ function wordToCode(word){
   return C;
 }
 
-/* ============================================================
-   C → word
-============================================================ */
+/* ===================== 5) C → word ===================== */
 function codeToWord(Cbig){
   let C = BigInt(Cbig);
   const digits = [];
@@ -164,9 +154,7 @@ function codeToWord(Cbig){
   return w;
 }
 
-/* ============================================================
-   Encode Text → Image (8 pixels per block)
-============================================================ */
+/* ===================== 6) ترميز النص إلى صورة ===================== */
 function encodeGeoFreq() {
   const key = BigInt(document.getElementById("userKey").value || "0");
   let text = normalizeArabic(document.getElementById("inputText").value.trim());
@@ -182,7 +170,7 @@ function encodeGeoFreq() {
   }
 
   const size = 1024;
-  const HEADER_PIXELS = 4096;
+  const HEADER_PIXELS = 8; // 8 بكسلات لتخزين عدد البلوكات
   const maxPixels = size * size;
   const neededPixels = HEADER_PIXELS + blocks.length * 8;
 
@@ -199,6 +187,23 @@ function encodeGeoFreq() {
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, size, size);
 
+  // 1) تخزين عدد البلوكات في أول 8 بكسلات (64‑bit little endian)
+  const blockCount = BigInt(blocks.length);
+  for (let byteIndex = 0; byteIndex < 8; byteIndex++) {
+    const byteVal = Number((blockCount >> BigInt(8 * byteIndex)) & 0xFFn);
+    const p = byteIndex; // البكسلات 0..7
+    const x = p % size;
+    const y = Math.floor(p / size);
+    const gray = 255 - byteVal;
+    const imgData = ctx.createImageData(1,1);
+    imgData.data[0] = gray;
+    imgData.data[1] = gray;
+    imgData.data[2] = gray;
+    imgData.data[3] = 255;
+    ctx.putImageData(imgData, x, y);
+  }
+
+  // 2) تخزين البلوكات بعد الهيدر
   blocks.forEach((block, blockIndex) => {
     const C  = wordToCode(block);
     const C2 = C ^ key;
@@ -223,21 +228,17 @@ function encodeGeoFreq() {
   alert("✔ تم تحويل النص إلى صورة GeoFreq بنجاح!");
 }
 
-/* ============================================================
-   Save Image
-============================================================ */
+/* ===================== 7) حفظ الصورة ===================== */
 function saveImage() {
   const canvas = document.getElementById("geoCanvas");
   const url = canvas.toDataURL("image/png");
   const a = document.createElement("a");
   a.href = url;
-  a.download = "alm-geofreq-v4.3.png";
+  a.download = "alm-geofreq-v4.4.png";
   a.click();
 }
 
-/* ============================================================
-   Decode Image → Text (FULL READ FIX)
-============================================================ */
+/* ===================== 8) فك الصورة إلى نص ===================== */
 function decodeGeoFreq() {
   const file = document.getElementById("imageInput").files[0];
   if (!file) return alert("اختر صورة.");
@@ -254,31 +255,40 @@ function decodeGeoFreq() {
     ctx.drawImage(img, 0, 0);
 
     const size = canvas.width;
-    const HEADER_PIXELS = 4096;
     const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 
-    const totalPixels = size * size;
-    const blocksBytes = [];
-
-    for (let p = HEADER_PIXELS; p < totalPixels; p++) {
+    // 1) قراءة عدد البلوكات من أول 8 بكسلات
+    let blockCount = 0n;
+    for (let byteIndex = 0; byteIndex < 8; byteIndex++) {
+      const p = byteIndex;
       const x = p % size;
       const y = Math.floor(p / size);
       const i = (y * size + x) * 4;
-
       const r = data[i];
-
-      // ⭐ نقرأ كل بكسل حتى لو كان 255
       const byteVal = 255 - r;
-
-      const blockIndex = Math.floor((p - HEADER_PIXELS) / 8);
-      const byteIndex  = (p - HEADER_PIXELS) % 8;
-
-      if (!blocksBytes[blockIndex]) {
-        blocksBytes[blockIndex] = new Array(8).fill(0);
-      }
-      blocksBytes[blockIndex][byteIndex] = byteVal;
+      blockCount |= (BigInt(byteVal) << BigInt(8 * byteIndex));
     }
 
+    const HEADER_PIXELS = 8;
+    const blocksBytes = [];
+
+    // 2) قراءة البلوكات بدقة حسب blockCount فقط
+    const totalBlocks = Number(blockCount);
+    for (let blockIndex = 0; blockIndex < totalBlocks; blockIndex++) {
+      const bytes = new Array(8).fill(0);
+      for (let byteIndex = 0; byteIndex < 8; byteIndex++) {
+        const p = HEADER_PIXELS + blockIndex * 8 + byteIndex;
+        const x = p % size;
+        const y = Math.floor(p / size);
+        const i = (y * size + x) * 4;
+        const r = data[i];
+        const byteVal = 255 - r;
+        bytes[byteIndex] = byteVal;
+      }
+      blocksBytes[blockIndex] = bytes;
+    }
+
+    // 3) تحويل البلوكات إلى كلمات
     const blocks = [];
 
     for (let blockIndex = 0; blockIndex < blocksBytes.length; blockIndex++) {
