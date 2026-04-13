@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>ALM GeoFreq v4.4 — Fixed Panels (Row‑Aligned 1008 px)</title>
+<title>ALM GeoFreq v4.4 — Block Panels (1008 px per row)</title>
 
 <style>
 body {
@@ -59,7 +59,7 @@ textarea, input[type="file"], input[type="text"] {
 
 <body>
 
-<header>ALM GeoFreq v4.4 — Fixed Panels (Row‑Aligned 1008 px)</header>
+<header>ALM GeoFreq v4.4 — Block Panels (1008 px per row)</header>
 
 <div class="container">
 
@@ -88,9 +88,6 @@ textarea, input[type="file"], input[type="text"] {
 </div>
 
 <script>
-/* ============================================================
-   Normalization
-============================================================ */
 function normalizeArabic(s) {
   return (s || "")
     .replace(/[إأآ]/g, "ا")
@@ -100,9 +97,6 @@ function normalizeArabic(s) {
     .replace(/ة/g, "ه");
 }
 
-/* ============================================================
-   Base‑32 Alphabet (v4.1)
-============================================================ */
 const B = 32;
 const LMAX = 12;
 
@@ -118,9 +112,6 @@ for (const [i,ch] of Object.entries(indexToChar)) {
   if (ch) charToIndex[ch] = parseInt(i, 10);
 }
 
-/* ============================================================
-   Split word into blocks
-============================================================ */
 function splitWord(word) {
   const blocks = [];
   for (let i = 0; i < word.length; i += LMAX) {
@@ -129,9 +120,6 @@ function splitWord(word) {
   return blocks;
 }
 
-/* ============================================================
-   word → C
-============================================================ */
 function wordToCode(word){
   const c = new Array(LMAX).fill(0);
   let pos = 0;
@@ -147,9 +135,6 @@ function wordToCode(word){
   return C;
 }
 
-/* ============================================================
-   C → word
-============================================================ */
 function codeToWord(Cbig){
   let C = BigInt(Cbig);
   const digits = [];
@@ -164,9 +149,7 @@ function codeToWord(Cbig){
   return w;
 }
 
-/* ============================================================
-   Encode — Row‑Aligned Panels (1008 px)
-============================================================ */
+/* =============== ENCODE =============== */
 function encode() {
   const key = BigInt(document.getElementById("userKey").value || "0");
   let text = normalizeArabic(document.getElementById("inputText").value.trim());
@@ -181,20 +164,28 @@ function encode() {
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, size, size);
 
-  const PANEL_CHARS = 1500;
-  const PANEL_PIXELS = 1008;
+  const PANEL_PIXELS = 1008;      // 8 هيدر + 125 بلوك × 8
   const PIXELS_PER_BLOCK = 8;
   const BYTES_PER_BLOCK = 8;
   const MAX_BLOCKS_PER_PANEL = 125;
 
-  // تقسيم النص إلى Panels حسب 1500 حرف
-  const panels = [];
-  for (let i = 0; i < text.length; i += PANEL_CHARS) {
-    panels.push(text.slice(i, i + PANEL_CHARS));
+  // 1) كل البلوكات من النص كاملًا
+  const allBlocks = [];
+  const words = text.split(/\s+/);
+  for (const w of words) {
+    for (const b of splitWord(w)) {
+      allBlocks.push(b);
+    }
   }
 
-  /* هيدر عالمي */
-  const globalPanels = BigInt(panels.length);
+  // 2) تقسيم البلوكات إلى Panels (كل Panel ≤ 125 بلوك)
+  const panelsBlocks = [];
+  for (let i = 0; i < allBlocks.length; i += MAX_BLOCKS_PER_PANEL) {
+    panelsBlocks.push(allBlocks.slice(i, i + MAX_BLOCKS_PER_PANEL));
+  }
+
+  // 3) هيدر عالمي: عدد الـPanels
+  const globalPanels = BigInt(panelsBlocks.length);
   for (let i = 0; i < 8; i++) {
     const byteVal = Number((globalPanels >> BigInt(8 * i)) & 0xFFn);
     const x = i;
@@ -205,28 +196,13 @@ function encode() {
     ctx.putImageData(img, x, y);
   }
 
-  /* كتابة Panels — كل Panel في صف مستقل */
+  // 4) كل Panel في صف مستقل
   let row = 1;
 
-  panels.forEach(panelText => {
-
-    // بناء بلوكات هذا الـPanel
-    let blocks = [];
-    const words = panelText.split(/\s+/);
-    for (const w of words) {
-      for (const b of splitWord(w)) {
-        blocks.push(b);
-      }
-    }
-
-    // قصّ البلوكات إلى 125 فقط
-    if (blocks.length > MAX_BLOCKS_PER_PANEL) {
-      blocks = blocks.slice(0, MAX_BLOCKS_PER_PANEL);
-    }
-
+  panelsBlocks.forEach(blocks => {
     const blocksCount = BigInt(blocks.length);
 
-    /* هيدر الـPanel */
+    // هيدر الـPanel
     for (let i = 0; i < 8; i++) {
       const byteVal = Number((blocksCount >> BigInt(8 * i)) & 0xFFn);
       const x = i;
@@ -237,7 +213,7 @@ function encode() {
       ctx.putImageData(img, x, y);
     }
 
-    /* كتابة البلوكات */
+    // البلوكات
     for (let bi = 0; bi < blocks.length; bi++) {
       const C  = wordToCode(blocks[bi]);
       const C2 = C ^ key;
@@ -259,9 +235,7 @@ function encode() {
   alert("✔ تم إنشاء الصورة بنجاح!");
 }
 
-/* ============================================================
-   Save
-============================================================ */
+/* =============== SAVE =============== */
 function saveImage() {
   const canvas = document.getElementById("geoCanvas");
   const url = canvas.toDataURL("image/png");
@@ -271,9 +245,7 @@ function saveImage() {
   a.click();
 }
 
-/* ============================================================
-   Decode — Row‑Aligned Panels
-============================================================ */
+/* =============== DECODE =============== */
 function decode() {
   const file = document.getElementById("imageInput").files[0];
   if (!file) return alert("اختر صورة.");
@@ -295,7 +267,7 @@ function decode() {
     const PIXELS_PER_BLOCK = 8;
     const BYTES_PER_BLOCK = 8;
 
-    /* قراءة عدد الـPanels */
+    // عدد الـPanels
     let panelsCount = 0n;
     for (let i = 0; i < 8; i++) {
       const x = i;
@@ -309,10 +281,10 @@ function decode() {
     const totalPanels = Number(panelsCount);
     let finalBlocks = [];
 
-    /* قراءة Panels */
+    // قراءة كل Panel من صف مستقل
     for (let row = 1; row <= totalPanels; row++) {
 
-      /* قراءة عدد البلوكات */
+      // عدد البلوكات
       let blocksCount = 0n;
       for (let i = 0; i < 8; i++) {
         const x = i;
@@ -325,7 +297,7 @@ function decode() {
 
       const totalBlocks = Number(blocksCount);
 
-      /* قراءة البلوكات */
+      // البلوكات
       for (let bi = 0; bi < totalBlocks; bi++) {
         let C2 = 0n;
         for (let byteIndex = 0; byteIndex < BYTES_PER_BLOCK; byteIndex++) {
