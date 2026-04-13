@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>ALM GeoFreq v7.0 — Black Dots Positional Encoding</title>
+<title>ALM GeoFreq v8.0 — Multi‑Panel Single Image</title>
 
 <style>
 body {
@@ -59,7 +59,7 @@ textarea, input[type="file"], input[type="text"] {
 
 <body>
 
-<header>ALM GeoFreq v7.0 — Black Dots Positional Encoding</header>
+<header>ALM GeoFreq v8.0 — Multi‑Panel Single Image</header>
 
 <div class="container">
 
@@ -69,7 +69,7 @@ textarea, input[type="file"], input[type="text"] {
   <h3>النص العربي:</h3>
   <textarea id="inputText" rows="8" placeholder="اكتب نصًا عربيًا هنا..."></textarea>
 
-  <button onclick="encodeGeoFreq()">تحويل النص إلى صورة نقاط</button>
+  <button onclick="encode()">تحويل النص إلى صورة واحدة متعددة الأجزاء</button>
 
   <div id="canvasWrapper">
     <canvas id="geoCanvas"></canvas>
@@ -80,7 +80,7 @@ textarea, input[type="file"], input[type="text"] {
 
   <h3>استعادة النص من صورة:</h3>
   <input type="file" id="imageInput" accept="image/png">
-  <button onclick="decodeGeoFreq()">استعادة النص</button>
+  <button onclick="decode()">استعادة النص</button>
 
   <h4>النص المستعاد:</h4>
   <div id="outputText"></div>
@@ -88,13 +88,17 @@ textarea, input[type="file"], input[type="text"] {
 </div>
 
 <script>
-/* ========== 1) جدول الترميز ========== */
+/* ============================================================
+   1) جدول الترميز
+============================================================ */
 const alphabet = " ابتثجحخدذرزسشصضطظعغفقكلمنهوي0123456789.,!?-";
 const B = alphabet.length;
 const LMAX = 12;
 
-/* ========== 2) تنظيف شامل قبل الترميز ========== */
-function cleanAndFilter(text) {
+/* ============================================================
+   2) تنظيف النص
+============================================================ */
+function clean(text) {
   text = text
     .replace(/[إأآ]/g, "ا")
     .replace(/ى/g, "ي")
@@ -122,81 +126,74 @@ function cleanAndFilter(text) {
   return out.trim();
 }
 
-/* ========== 3) فهرسة الحروف ========== */
-function charIndex(ch) {
-  const i = alphabet.indexOf(ch);
-  return i >= 0 ? i : 0;
-}
-function indexChar(i) {
-  return alphabet[i] || "";
-}
-
-/* ========== 4) تقسيم النص إلى بلوكات ========== */
-function splitText(text) {
-  const blocks = [];
-  for (let i = 0; i < text.length; i += LMAX) {
-    blocks.push(text.slice(i, i + LMAX));
-  }
-  return blocks;
-}
-
-/* ========== 5) block → C (BigInt) ========== */
+/* ============================================================
+   3) تحويل بلوك إلى كود
+============================================================ */
 function blockToCode(block) {
   let C = 0n;
   for (let i = 0; i < LMAX; i++) {
     const ch = block[i] || " ";
-    const idx = charIndex(ch);
+    const idx = alphabet.indexOf(ch);
     C += BigInt(idx) * (BigInt(B) ** BigInt(i));
   }
   return C;
 }
 
-/* ========== 6) C → block ========== */
+/* ============================================================
+   4) كود إلى بلوك
+============================================================ */
 function codeToBlock(Cbig) {
   let C = BigInt(Cbig);
   let out = "";
   for (let i = 0; i < LMAX; i++) {
     const idx = Number(C % BigInt(B));
     C /= BigInt(B);
-    out += indexChar(idx);
+    out += alphabet[idx] || "";
   }
   return out;
 }
 
-/* ========== 7) كتابة بت في بكسل (أسود/أبيض) ========== */
-function setBitPixel(ctx, size, p, bit) {
+/* ============================================================
+   5) كتابة بت كنقطة سوداء/بيضاء
+============================================================ */
+function setBit(ctx, size, p, bit) {
   const x = p % size;
   const y = Math.floor(p / size);
-  const imgData = ctx.createImageData(1,1);
-  const v = bit ? 0 : 255; // 1 = أسود, 0 = أبيض
-  imgData.data[0] = v;
-  imgData.data[1] = v;
-  imgData.data[2] = v;
-  imgData.data[3] = 255;
-  ctx.putImageData(imgData, x, y);
+  const img = ctx.createImageData(1,1);
+  const v = bit ? 0 : 255;
+  img.data[0] = v;
+  img.data[1] = v;
+  img.data[2] = v;
+  img.data[3] = 255;
+  ctx.putImageData(img, x, y);
 }
 
-/* ========== 8) قراءة بت من بكسل ========== */
-function getBitPixel(data, size, p) {
+/* ============================================================
+   6) قراءة بت من نقطة
+============================================================ */
+function getBit(data, size, p) {
   const x = p % size;
   const y = Math.floor(p / size);
   const i = (y * size + x) * 4;
-  const r = data[i];
-  return (r < 128) ? 1 : 0; // أسود = 1, أبيض = 0
+  return data[i] < 128 ? 1 : 0;
 }
 
-/* ========== 9) ترميز النص إلى صورة (نقاط سوداء فقط) ========== */
-function encodeGeoFreq() {
+/* ============================================================
+   7) ترميز النص إلى Panels داخل صورة واحدة
+============================================================ */
+function encode() {
   const key = BigInt(document.getElementById("userKey").value || "0");
 
-  let text = document.getElementById("inputText").value;
-  text = cleanAndFilter(text);
-  if (!text) {
-    alert("لا يوجد نص صالح بعد التنظيف.");
-    return;
-  }
+  let text = clean(document.getElementById("inputText").value);
+  if (!text) return alert("النص فارغ بعد التنظيف.");
 
-  const blocks = splitText(text);
+  const words = text.split(" ");
+  const PANEL_WORDS = 300;
+
+  const panels = [];
+  for (let i = 0; i < words.length; i += PANEL_WORDS) {
+    panels.push(words.slice(i, i + PANEL_WORDS).join(" "));
+  }
 
   const size = 1024;
   const canvas = document.getElementById("geoCanvas");
@@ -206,51 +203,59 @@ function encodeGeoFreq() {
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, size, size);
 
-  // سنستخدم أول 64 بكسل لتخزين عدد البلوكات (blockCount) كـ 64 بت
+  const PANEL_HEIGHT = Math.floor(size / panels.length);
   const HEADER_BITS = 64;
   const BITS_PER_BLOCK = 64;
-  const maxPixels = size * size;
-  const neededBits = HEADER_BITS + blocks.length * BITS_PER_BLOCK;
 
-  if (neededBits > maxPixels) {
-    alert("النص طويل جدًا لصورة واحدة 1024×1024 بنظام 64 بت لكل بلوك.");
-    return;
-  }
+  let globalOffset = 0;
 
-  // 1) تخزين عدد البلوكات في أول 64 بت
-  let blockCount = BigInt(blocks.length);
-  for (let bitIndex = 0; bitIndex < 64; bitIndex++) {
-    const bit = Number((blockCount >> BigInt(bitIndex)) & 1n);
-    setBitPixel(ctx, size, bitIndex, bit);
-  }
-
-  // 2) تخزين البلوكات: كل بلوك = 64 بت = 64 بكسل
-  blocks.forEach((block, bi) => {
-    const C = blockToCode(block);
-    const C2 = C ^ key;
-
-    for (let bitIndex = 0; bitIndex < 64; bitIndex++) {
-      const bit = Number((C2 >> BigInt(bitIndex)) & 1n);
-      const p = HEADER_BITS + bi * BITS_PER_BLOCK + bitIndex;
-      setBitPixel(ctx, size, p, bit);
+  panels.forEach((panelText, pi) => {
+    const blocks = [];
+    for (let i = 0; i < panelText.length; i += LMAX) {
+      blocks.push(panelText.slice(i, i + LMAX));
     }
+
+    const panelStart = pi * PANEL_HEIGHT * size;
+
+    // 1) هيدر: عدد البلوكات
+    let blockCount = BigInt(blocks.length);
+    for (let bit = 0; bit < 64; bit++) {
+      const b = Number((blockCount >> BigInt(bit)) & 1n);
+      setBit(ctx, size, panelStart + bit, b);
+    }
+
+    // 2) البلوكات
+    blocks.forEach((block, bi) => {
+      const C = blockToCode(block);
+      const C2 = C ^ key;
+
+      for (let bit = 0; bit < 64; bit++) {
+        const b = Number((C2 >> BigInt(bit)) & 1n);
+        const p = panelStart + HEADER_BITS + bi * BITS_PER_BLOCK + bit;
+        setBit(ctx, size, p, b);
+      }
+    });
   });
 
-  alert("✔ تم تحويل النص إلى صورة نقاط سوداء بنجاح!");
+  alert("✔ تم إنشاء صورة واحدة تحتوي عدة Panels بنجاح!");
 }
 
-/* ========== 10) حفظ الصورة ========== */
+/* ============================================================
+   8) حفظ الصورة
+============================================================ */
 function saveImage() {
   const canvas = document.getElementById("geoCanvas");
   const url = canvas.toDataURL("image/png");
   const a = document.createElement("a");
   a.href = url;
-  a.download = "alm-geofreq-v7.png";
+  a.download = "alm-geofreq-v8.png";
   a.click();
 }
 
-/* ========== 11) فك التشفير من الصورة ========== */
-function decodeGeoFreq() {
+/* ============================================================
+   9) فك التشفير
+============================================================ */
+function decode() {
   const file = document.getElementById("imageInput").files[0];
   if (!file) return alert("اختر صورة.");
 
@@ -267,36 +272,38 @@ function decodeGeoFreq() {
     const size = canvas.width;
     const data = ctx.getImageData(0, 0, size, size).data;
 
+    const PANEL_HEIGHT = Math.floor(size / 10); // نفترض 10 Panels كحد أقصى
     const HEADER_BITS = 64;
     const BITS_PER_BLOCK = 64;
 
-    // 1) قراءة عدد البلوكات من أول 64 بت
-    let blockCount = 0n;
-    for (let bitIndex = 0; bitIndex < 64; bitIndex++) {
-      const bit = getBitPixel(data, size, bitIndex);
-      if (bit) {
-        blockCount |= (1n << BigInt(bitIndex));
+    let finalText = "";
+
+    for (let pi = 0; pi < 10; pi++) {
+      const panelStart = pi * PANEL_HEIGHT * size;
+
+      // قراءة عدد البلوكات
+      let blockCount = 0n;
+      for (let bit = 0; bit < 64; bit++) {
+        const b = getBit(data, size, panelStart + bit);
+        if (b) blockCount |= (1n << BigInt(bit));
       }
-    }
 
-    const totalBlocks = Number(blockCount);
-    let text = "";
+      const totalBlocks = Number(blockCount);
+      if (totalBlocks <= 0) continue;
 
-    // 2) قراءة كل بلوك
-    for (let bi = 0; bi < totalBlocks; bi++) {
-      let C2 = 0n;
-      for (let bitIndex = 0; bitIndex < 64; bitIndex++) {
-        const p = HEADER_BITS + bi * BITS_PER_BLOCK + bitIndex;
-        const bit = getBitPixel(data, size, p);
-        if (bit) {
-          C2 |= (1n << BigInt(bitIndex));
+      for (let bi = 0; bi < totalBlocks; bi++) {
+        let C2 = 0n;
+        for (let bit = 0; bit < 64; bit++) {
+          const p = panelStart + HEADER_BITS + bi * BITS_PER_BLOCK + bit;
+          const b = getBit(data, size, p);
+          if (b) C2 |= (1n << BigInt(bit));
         }
+        const C = C2 ^ key;
+        finalText += codeToBlock(C);
       }
-      const C = C2 ^ key;
-      text += codeToBlock(C);
     }
 
-    document.getElementById("outputText").textContent = text.trim();
+    document.getElementById("outputText").textContent = finalText.trim();
   };
 
   img.src = URL.createObjectURL(file);
