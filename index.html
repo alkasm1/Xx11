@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>ALM GeoFreq v4.2 — 8‑Pixel + Multi‑Panel (200 كلمة لكل جزء)</title>
+<title>ALM GeoFreq v4.3 — Fixed‑Pixel Panels (200k لكل Panel)</title>
 
 <style>
 body {
@@ -59,17 +59,17 @@ textarea, input[type="file"], input[type="text"] {
 
 <body>
 
-<header>ALM GeoFreq v4.2 — 8‑Pixel + Multi‑Panel (200 كلمة لكل جزء)</header>
+<header>ALM GeoFreq v4.3 — Fixed‑Pixel Panels (200k لكل Panel)</header>
 
 <div class="container">
 
-  <h3>مفتاح المستخدم (عدد صحيح كبير):</h3>
+  <h3>مفتاح المستخدم:</h3>
   <input id="userKey" type="text" value="123456789">
 
   <h3>النص العربي:</h3>
   <textarea id="inputText" rows="8" placeholder="اكتب نصًا عربيًا هنا..."></textarea>
 
-  <button onclick="encodeGeoFreq()">تحويل النص إلى صورة واحدة متعددة الأجزاء</button>
+  <button onclick="encode()">تحويل النص إلى صورة واحدة متعددة الأجزاء</button>
 
   <div id="canvasWrapper">
     <canvas id="geoCanvas"></canvas>
@@ -80,7 +80,7 @@ textarea, input[type="file"], input[type="text"] {
 
   <h3>استعادة النص من صورة:</h3>
   <input type="file" id="imageInput" accept="image/png">
-  <button onclick="decodeGeoFreq()">استعادة النص</button>
+  <button onclick="decode()">استعادة النص</button>
 
   <h4>النص المستعاد:</h4>
   <div id="outputText"></div>
@@ -89,7 +89,7 @@ textarea, input[type="file"], input[type="text"] {
 
 <script>
 /* ============================================================
-   1) Normalization
+   Normalization
 ============================================================ */
 function normalizeArabic(s) {
   return (s || "")
@@ -101,7 +101,7 @@ function normalizeArabic(s) {
 }
 
 /* ============================================================
-   2) Base‑32 Alphabet (v4.1)
+   Base‑32 Alphabet (v4.1)
 ============================================================ */
 const B = 32;
 const LMAX = 12;
@@ -119,7 +119,7 @@ for (const [i,ch] of Object.entries(indexToChar)) {
 }
 
 /* ============================================================
-   3) Split word into blocks
+   Split word into blocks
 ============================================================ */
 function splitWord(word) {
   const blocks = [];
@@ -130,7 +130,7 @@ function splitWord(word) {
 }
 
 /* ============================================================
-   4) word → C (BigInt)
+   word → C
 ============================================================ */
 function wordToCode(word){
   const c = new Array(LMAX).fill(0);
@@ -148,7 +148,7 @@ function wordToCode(word){
 }
 
 /* ============================================================
-   5) C → word
+   C → word
 ============================================================ */
 function codeToWord(Cbig){
   let C = BigInt(Cbig);
@@ -165,20 +165,21 @@ function codeToWord(Cbig){
 }
 
 /* ============================================================
-   6) Encode with Panels (200 كلمة لكل Panel)
+   Encode with Fixed‑Pixel Panels
 ============================================================ */
-function encodeGeoFreq() {
+function encode() {
   const key = BigInt(document.getElementById("userKey").value || "0");
   let text = normalizeArabic(document.getElementById("inputText").value.trim());
   if (!text) return alert("الرجاء إدخال نص.");
 
   const words = text.split(/\s+/);
-  const PANEL_WORDS = 200;
 
-  // تقسيم النص إلى Panels حسب الكلمات
-  const panelsWords = [];
-  for (let i = 0; i < words.length; i += PANEL_WORDS) {
-    panelsWords.push(words.slice(i, i + PANEL_WORDS));
+  // بناء البلوكات
+  const blocks = [];
+  for (const w of words) {
+    for (const b of splitWord(w)) {
+      blocks.push(b);
+    }
   }
 
   const size = 1024;
@@ -190,81 +191,94 @@ function encodeGeoFreq() {
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, size, size);
 
-  const PANEL_HEIGHT = Math.floor(size / panelsWords.length);
-  const HEADER_PIXELS = 8;   // لكل Panel
-  const BYTES_PER_BLOCK = 8; // 64 بت
+  const PANEL_PIXELS = 200000;
   const PIXELS_PER_BLOCK = 8;
+  const BYTES_PER_BLOCK = 8;
 
-  panelsWords.forEach((panelWords, pi) => {
-    // بناء بلوكات هذا الـ Panel
-    const blocks = [];
-    for (const w of panelWords) {
-      for (const b of splitWord(w)) {
-        blocks.push(b);
-      }
-    }
+  const totalPixels = size * size;
+  const maxPanels = Math.floor(totalPixels / PANEL_PIXELS);
 
-    const panelStartPixel = pi * PANEL_HEIGHT * size;
+  const panelsCount = Math.ceil((blocks.length * PIXELS_PER_BLOCK) / PANEL_PIXELS);
 
-    // 1) تخزين عدد البلوكات في أول 8 بكسلات من الـ Panel
-    const blocksCount = BigInt(blocks.length);
+  if (panelsCount > maxPanels) {
+    alert("النص طويل جدًا لصورة واحدة.");
+    return;
+  }
+
+  /* هيدر عالمي: عدد الـPanels */
+  const globalPanels = BigInt(panelsCount);
+  for (let i = 0; i < 8; i++) {
+    const byteVal = Number((globalPanels >> BigInt(8 * i)) & 0xFFn);
+    const x = i % size;
+    const y = Math.floor(i / size);
+    const gray = 255 - byteVal;
+    const img = ctx.createImageData(1,1);
+    img.data[0]=gray; img.data[1]=gray; img.data[2]=gray; img.data[3]=255;
+    ctx.putImageData(img, x, y);
+  }
+
+  let blockPtr = 0;
+
+  for (let pi = 0; pi < panelsCount; pi++) {
+    const panelStart = 8 + pi * PANEL_PIXELS;
+
+    const blocksInPanel = Math.min(
+      Math.floor((PANEL_PIXELS - 8) / PIXELS_PER_BLOCK),
+      blocks.length - blockPtr
+    );
+
+    /* هيدر الـPanel: عدد البلوكات */
+    const bc = BigInt(blocksInPanel);
     for (let i = 0; i < 8; i++) {
-      const byteVal = Number((blocksCount >> BigInt(8 * i)) & 0xFFn);
-      const p = panelStartPixel + i;
+      const byteVal = Number((bc >> BigInt(8 * i)) & 0xFFn);
+      const p = panelStart + i;
       const x = p % size;
       const y = Math.floor(p / size);
-
       const gray = 255 - byteVal;
-      const imgData = ctx.createImageData(1,1);
-      imgData.data[0] = gray;
-      imgData.data[1] = gray;
-      imgData.data[2] = gray;
-      imgData.data[3] = 255;
-      ctx.putImageData(imgData, x, y);
+      const img = ctx.createImageData(1,1);
+      img.data[0]=gray; img.data[1]=gray; img.data[2]=gray; img.data[3]=255;
+      ctx.putImageData(img, x, y);
     }
 
-    // 2) تخزين البلوكات: كل بلوك = 8 بكسلات
-    blocks.forEach((block, blockIndex) => {
-      const C  = wordToCode(block);
+    /* كتابة بلوكات هذا الـPanel */
+    for (let bi = 0; bi < blocksInPanel; bi++) {
+      const C  = wordToCode(blocks[blockPtr]);
       const C2 = C ^ key;
 
       for (let byteIndex = 0; byteIndex < BYTES_PER_BLOCK; byteIndex++) {
         const byteVal = Number((C2 >> BigInt(8 * byteIndex)) & 0xFFn);
-
-        const p = panelStartPixel + HEADER_PIXELS + blockIndex * PIXELS_PER_BLOCK + byteIndex;
+        const p = panelStart + 8 + bi * PIXELS_PER_BLOCK + byteIndex;
         const x = p % size;
         const y = Math.floor(p / size);
-
         const gray = 255 - byteVal;
-        const imgData = ctx.createImageData(1,1);
-        imgData.data[0] = gray;
-        imgData.data[1] = gray;
-        imgData.data[2] = gray;
-        imgData.data[3] = 255;
-        ctx.putImageData(imgData, x, y);
+        const img = ctx.createImageData(1,1);
+        img.data[0]=gray; img.data[1]=gray; img.data[2]=gray; img.data[3]=255;
+        ctx.putImageData(img, x, y);
       }
-    });
-  });
 
-  alert("✔ تم تحويل النص إلى صورة واحدة متعددة الأجزاء (Panels) بنجاح!");
+      blockPtr++;
+    }
+  }
+
+  alert("✔ تم إنشاء الصورة بنجاح!");
 }
 
 /* ============================================================
-   7) Save Image
+   Save
 ============================================================ */
 function saveImage() {
   const canvas = document.getElementById("geoCanvas");
   const url = canvas.toDataURL("image/png");
   const a = document.createElement("a");
   a.href = url;
-  a.download = "alm-geofreq-v4.2-panels.png";
+  a.download = "alm-geofreq-v4.3.png";
   a.click();
 }
 
 /* ============================================================
-   8) Decode with Panels
+   Decode
 ============================================================ */
-function decodeGeoFreq() {
+function decode() {
   const file = document.getElementById("imageInput").files[0];
   if (!file) return alert("اختر صورة.");
 
@@ -280,60 +294,63 @@ function decodeGeoFreq() {
     ctx.drawImage(img, 0, 0);
 
     const size = canvas.width;
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    const data = ctx.getImageData(0, 0, size, size).data;
 
-    const HEADER_PIXELS = 8;
-    const BYTES_PER_BLOCK = 8;
+    const PANEL_PIXELS = 200000;
     const PIXELS_PER_BLOCK = 8;
+    const BYTES_PER_BLOCK = 8;
 
-    // نفترض نفس عدد الـ Panels الذي استُخدم في الترميز:
-    // نكتشفه تقريبًا من ارتفاع الصورة، أو نسمح بعدة Panels ونقف عندما يكون blocksCount = 0
-    const MAX_PANELS = 20; // حد أقصى معقول
-    const PANEL_HEIGHT = Math.floor(size / MAX_PANELS);
+    /* قراءة عدد الـPanels */
+    let panelsCount = 0n;
+    for (let i = 0; i < 8; i++) {
+      const x = i % size;
+      const y = Math.floor(i / size);
+      const idx = (y * size + x) * 4;
+      const r = data[idx];
+      const byteVal = 255 - r;
+      panelsCount |= (BigInt(byteVal) << BigInt(8 * i));
+    }
 
+    const totalPanels = Number(panelsCount);
     let finalBlocks = [];
 
-    for (let pi = 0; pi < MAX_PANELS; pi++) {
-      const panelStartPixel = pi * PANEL_HEIGHT * size;
+    for (let pi = 0; pi < totalPanels; pi++) {
+      const panelStart = 8 + pi * PANEL_PIXELS;
 
-      // قراءة عدد البلوكات من أول 8 بكسلات في هذا الـ Panel
+      /* قراءة عدد البلوكات في هذا الـPanel */
       let blocksCount = 0n;
       for (let i = 0; i < 8; i++) {
-        const p = panelStartPixel + i;
+        const p = panelStart + i;
         const x = p % size;
         const y = Math.floor(p / size);
         const idx = (y * size + x) * 4;
         const r = data[idx];
-        const gray = r;
-        const byteVal = 255 - gray;
+        const byteVal = 255 - r;
         blocksCount |= (BigInt(byteVal) << BigInt(8 * i));
       }
 
       const totalBlocks = Number(blocksCount);
-      if (!totalBlocks || totalBlocks <= 0) continue;
+      if (totalBlocks <= 0) continue;
 
-      for (let blockIndex = 0; blockIndex < totalBlocks; blockIndex++) {
+      /* قراءة بلوكات هذا الـPanel */
+      for (let bi = 0; bi < totalBlocks; bi++) {
         let C2 = 0n;
         for (let byteIndex = 0; byteIndex < BYTES_PER_BLOCK; byteIndex++) {
-          const p = panelStartPixel + HEADER_PIXELS + blockIndex * PIXELS_PER_BLOCK + byteIndex;
+          const p = panelStart + 8 + bi * PIXELS_PER_BLOCK + byteIndex;
           const x = p % size;
           const y = Math.floor(p / size);
-          const i = (y * size + x) * 4;
-
-          const r = data[i];
-          const gray = r;
-          const byteVal = 255 - gray;
-
+          const idx = (y * size + x) * 4;
+          const r = data[idx];
+          const byteVal = 255 - r;
           C2 |= (BigInt(byteVal) << BigInt(8 * byteIndex));
         }
         const C = C2 ^ key;
-        const block = codeToWord(C);
-        finalBlocks.push(block);
+        finalBlocks.push(codeToWord(C));
       }
     }
 
-    const text = finalBlocks.join(" ");
-    document.getElementById("outputText").textContent = text || "(لا توجد بيانات)";
+    document.getElementById("outputText").textContent =
+      finalBlocks.join(" ");
   };
 
   img.src = URL.createObjectURL(file);
