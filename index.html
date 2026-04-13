@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>ALM GeoFreq v4.3 — Fixed‑Pixel Panels (200k لكل Panel)</title>
+<title>ALM GeoFreq v4.4 — Fixed 1500‑Char Panels (1008 px)</title>
 
 <style>
 body {
@@ -59,7 +59,7 @@ textarea, input[type="file"], input[type="text"] {
 
 <body>
 
-<header>ALM GeoFreq v4.3 — Fixed‑Pixel Panels (200k لكل Panel)</header>
+<header>ALM GeoFreq v4.4 — Fixed 1500‑Char Panels (1008 px)</header>
 
 <div class="container">
 
@@ -165,22 +165,12 @@ function codeToWord(Cbig){
 }
 
 /* ============================================================
-   Encode with Fixed‑Pixel Panels
+   Encode — Fixed 1500‑char Panels (1008 px)
 ============================================================ */
 function encode() {
   const key = BigInt(document.getElementById("userKey").value || "0");
   let text = normalizeArabic(document.getElementById("inputText").value.trim());
   if (!text) return alert("الرجاء إدخال نص.");
-
-  const words = text.split(/\s+/);
-
-  // بناء البلوكات
-  const blocks = [];
-  for (const w of words) {
-    for (const b of splitWord(w)) {
-      blocks.push(b);
-    }
-  }
 
   const size = 1024;
   const canvas = document.getElementById("geoCanvas");
@@ -191,22 +181,19 @@ function encode() {
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, size, size);
 
-  const PANEL_PIXELS = 200000;
+  const PANEL_CHARS = 1500;
+  const PANEL_PIXELS = 1008; // 8 بكسلات × 125 بلوك + 8 هيدر
   const PIXELS_PER_BLOCK = 8;
   const BYTES_PER_BLOCK = 8;
 
-  const totalPixels = size * size;
-  const maxPanels = Math.floor(totalPixels / PANEL_PIXELS);
-
-  const panelsCount = Math.ceil((blocks.length * PIXELS_PER_BLOCK) / PANEL_PIXELS);
-
-  if (panelsCount > maxPanels) {
-    alert("النص طويل جدًا لصورة واحدة.");
-    return;
+  // تقسيم النص إلى Panels حسب 1500 حرف
+  const panels = [];
+  for (let i = 0; i < text.length; i += PANEL_CHARS) {
+    panels.push(text.slice(i, i + PANEL_CHARS));
   }
 
   /* هيدر عالمي: عدد الـPanels */
-  const globalPanels = BigInt(panelsCount);
+  const globalPanels = BigInt(panels.length);
   for (let i = 0; i < 8; i++) {
     const byteVal = Number((globalPanels >> BigInt(8 * i)) & 0xFFn);
     const x = i % size;
@@ -217,20 +204,23 @@ function encode() {
     ctx.putImageData(img, x, y);
   }
 
-  let blockPtr = 0;
+  let panelStart = 8;
 
-  for (let pi = 0; pi < panelsCount; pi++) {
-    const panelStart = 8 + pi * PANEL_PIXELS;
+  panels.forEach(panelText => {
+    // بناء بلوكات هذا الـPanel
+    const blocks = [];
+    const words = panelText.split(/\s+/);
+    for (const w of words) {
+      for (const b of splitWord(w)) {
+        blocks.push(b);
+      }
+    }
 
-    const blocksInPanel = Math.min(
-      Math.floor((PANEL_PIXELS - 8) / PIXELS_PER_BLOCK),
-      blocks.length - blockPtr
-    );
+    const blocksCount = BigInt(blocks.length);
 
-    /* هيدر الـPanel: عدد البلوكات */
-    const bc = BigInt(blocksInPanel);
+    /* هيدر الـPanel */
     for (let i = 0; i < 8; i++) {
-      const byteVal = Number((bc >> BigInt(8 * i)) & 0xFFn);
+      const byteVal = Number((blocksCount >> BigInt(8 * i)) & 0xFFn);
       const p = panelStart + i;
       const x = p % size;
       const y = Math.floor(p / size);
@@ -240,9 +230,9 @@ function encode() {
       ctx.putImageData(img, x, y);
     }
 
-    /* كتابة بلوكات هذا الـPanel */
-    for (let bi = 0; bi < blocksInPanel; bi++) {
-      const C  = wordToCode(blocks[blockPtr]);
+    /* كتابة البلوكات */
+    for (let bi = 0; bi < blocks.length; bi++) {
+      const C  = wordToCode(blocks[bi]);
       const C2 = C ^ key;
 
       for (let byteIndex = 0; byteIndex < BYTES_PER_BLOCK; byteIndex++) {
@@ -255,10 +245,10 @@ function encode() {
         img.data[0]=gray; img.data[1]=gray; img.data[2]=gray; img.data[3]=255;
         ctx.putImageData(img, x, y);
       }
-
-      blockPtr++;
     }
-  }
+
+    panelStart += PANEL_PIXELS;
+  });
 
   alert("✔ تم إنشاء الصورة بنجاح!");
 }
@@ -271,7 +261,7 @@ function saveImage() {
   const url = canvas.toDataURL("image/png");
   const a = document.createElement("a");
   a.href = url;
-  a.download = "alm-geofreq-v4.3.png";
+  a.download = "alm-geofreq-v4.4.png";
   a.click();
 }
 
@@ -296,7 +286,7 @@ function decode() {
     const size = canvas.width;
     const data = ctx.getImageData(0, 0, size, size).data;
 
-    const PANEL_PIXELS = 200000;
+    const PANEL_PIXELS = 1008;
     const PIXELS_PER_BLOCK = 8;
     const BYTES_PER_BLOCK = 8;
 
@@ -314,10 +304,11 @@ function decode() {
     const totalPanels = Number(panelsCount);
     let finalBlocks = [];
 
-    for (let pi = 0; pi < totalPanels; pi++) {
-      const panelStart = 8 + pi * PANEL_PIXELS;
+    let panelStart = 8;
 
-      /* قراءة عدد البلوكات في هذا الـPanel */
+    for (let pi = 0; pi < totalPanels; pi++) {
+
+      /* قراءة عدد البلوكات */
       let blocksCount = 0n;
       for (let i = 0; i < 8; i++) {
         const p = panelStart + i;
@@ -330,9 +321,8 @@ function decode() {
       }
 
       const totalBlocks = Number(blocksCount);
-      if (totalBlocks <= 0) continue;
 
-      /* قراءة بلوكات هذا الـPanel */
+      /* قراءة البلوكات */
       for (let bi = 0; bi < totalBlocks; bi++) {
         let C2 = 0n;
         for (let byteIndex = 0; byteIndex < BYTES_PER_BLOCK; byteIndex++) {
@@ -347,6 +337,8 @@ function decode() {
         const C = C2 ^ key;
         finalBlocks.push(codeToWord(C));
       }
+
+      panelStart += PANEL_PIXELS;
     }
 
     document.getElementById("outputText").textContent =
