@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>ALM GeoFreq v6.0 — Multi‑Image Panels (300 blocks each)</title>
+<title>ALM GeoFreq v6.1 — Multi‑Image Panels (125 blocks each)</title>
 
 <style>
 body {
@@ -62,7 +62,7 @@ textarea, input[type="file"], input[type="text"] {
 
 <body>
 
-<header>ALM GeoFreq v6.0 — Multi‑Image Panels (300 blocks each)</header>
+<header>ALM GeoFreq v6.1 — Multi‑Image Panels (125 blocks each)</header>
 
 <div class="container">
 
@@ -165,14 +165,14 @@ function codeToWord(Cbig){
 }
 
 /* ============================================================
-   Encode — 300 blocks per image
+   Encode — 125 blocks per image
 ============================================================ */
 function encode() {
   const key = BigInt(document.getElementById("userKey").value || "0");
   let text = normalizeArabic(document.getElementById("inputText").value.trim());
   if (!text) return alert("الرجاء إدخال نص.");
 
-  const MAX_BLOCKS = 300;
+  const MAX_BLOCKS = 125;
   const PIXELS_PER_BLOCK = 8;
   const BYTES_PER_BLOCK = 8;
   const HEADER_PIXELS = 8;
