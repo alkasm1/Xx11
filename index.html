@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>ALM GeoFreq v6.1 — Filtered Character Encoding</title>
+<title>ALM GeoFreq v6.2 — Clean Filter + Character Encoding</title>
 
 <style>
 body {
@@ -59,7 +59,7 @@ textarea, input[type="file"], input[type="text"] {
 
 <body>
 
-<header>ALM GeoFreq v6.1 — Filtered Character Encoding</header>
+<header>ALM GeoFreq v6.2 — Clean Filter + Character Encoding</header>
 
 <div class="container">
 
@@ -88,32 +88,51 @@ textarea, input[type="file"], input[type="text"] {
 </div>
 
 <script>
-/* ===================== 1) تطبيع العربية ===================== */
-function normalizeArabic(s) {
-  return (s || "")
+/* ===================== 1) جدول الترميز ===================== */
+const alphabet = " ابتثجحخدذرزسشصضطظعغفقكلمنهوي0123456789.,!?-";
+const B = alphabet.length;
+const LMAX = 12;
+
+/* ===================== 2) تنظيف شامل قبل الترميز ===================== */
+function cleanAndFilter(text) {
+  // تطبيع العربية
+  text = text
     .replace(/[إأآ]/g, "ا")
     .replace(/ى/g, "ي")
     .replace(/ؤ/g, "و")
     .replace(/ئ/g, "ي")
     .replace(/ة/g, "ه");
-}
 
-/* ===================== 2) جدول الترميز ===================== */
-const alphabet = " ابتثجحخدذرزسشصضطظعغفقكلمنهوي0123456789.,!?-";
-const B = alphabet.length;
-const LMAX = 12;
+  // تحويل الأرقام العربية إلى إنجليزية
+  text = text.replace(/[٠-٩]/g, d => "0123456789"["٠١٢٣٤٥٦٧٨٩".indexOf(d)]);
 
-/* ===================== 3) تصفية الحروف المسموح بها فقط ===================== */
-function filterAllowedChars(text) {
-  const allowed = alphabet;
+  // تحويل علامات الترقيم العربية
+  text = text
+    .replace(/،/g, ",")
+    .replace(/؛/g, ";")
+    .replace(/ـ/g, "-")
+    .replace(/[“”«»]/g, '"')
+    .replace(/[…]/g, ".");
+
+  // حذف التشكيل
+  text = text.replace(/[\u064B-\u065F]/g, "");
+
+  // حذف الرموز المخفية
+  text = text.replace(/[\u200C\u200D\u202A\u202B\u202C\u202D\u202E]/g, "");
+
+  // مسافة واحدة فقط
+  text = text.replace(/\s+/g, " ");
+
+  // الفلترة النهائية
   let out = "";
   for (let ch of text) {
-    if (allowed.includes(ch)) out += ch;
+    if (alphabet.includes(ch)) out += ch;
   }
-  return out;
+
+  return out.trim();
 }
 
-/* ===================== 4) دوال الفهرسة ===================== */
+/* ===================== 3) دوال الفهرسة ===================== */
 function charIndex(ch) {
   const i = alphabet.indexOf(ch);
   return i >= 0 ? i : 0;
@@ -123,7 +142,7 @@ function indexChar(i) {
   return alphabet[i] || "";
 }
 
-/* ===================== 5) تقسيم النص إلى بلوكات ثابتة ===================== */
+/* ===================== 4) تقسيم النص إلى بلوكات ===================== */
 function splitText(text) {
   const blocks = [];
   for (let i = 0; i < text.length; i += LMAX) {
@@ -132,7 +151,7 @@ function splitText(text) {
   return blocks;
 }
 
-/* ===================== 6) block → C ===================== */
+/* ===================== 5) block → C ===================== */
 function blockToCode(block) {
   let C = 0n;
   for (let i = 0; i < LMAX; i++) {
@@ -143,7 +162,7 @@ function blockToCode(block) {
   return C;
 }
 
-/* ===================== 7) C → block ===================== */
+/* ===================== 6) C → block ===================== */
 function codeToBlock(Cbig) {
   let C = BigInt(Cbig);
   let out = "";
@@ -155,15 +174,15 @@ function codeToBlock(Cbig) {
   return out;
 }
 
-/* ===================== 8) ترميز النص إلى صورة ===================== */
+/* ===================== 7) ترميز النص ===================== */
 function encodeGeoFreq() {
   const key = BigInt(document.getElementById("userKey").value || "0");
+
   let text = document.getElementById("inputText").value;
-  text = normalizeArabic(text);
-  text = filterAllowedChars(text);
+  text = cleanAndFilter(text);
 
   if (!text) {
-    alert("لا يوجد نص صالح بعد التصفية.");
+    alert("لا يوجد نص صالح بعد التنظيف.");
     return;
   }
 
@@ -175,7 +194,7 @@ function encodeGeoFreq() {
   const neededPixels = HEADER_PIXELS + blocks.length * 8;
 
   if (neededPixels > maxPixels) {
-    alert("النص طويل جدًا لصورة واحدة 1024×1024.");
+    alert("النص طويل جدًا لصورة واحدة.");
     return;
   }
 
@@ -186,7 +205,7 @@ function encodeGeoFreq() {
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, size, size);
 
-  // تخزين عدد البلوكات في أول 8 بكسلات
+  // تخزين عدد البلوكات
   const blockCount = BigInt(blocks.length);
   for (let i = 0; i < 8; i++) {
     const byteVal = Number((blockCount >> BigInt(8 * i)) & 0xFFn);
@@ -223,17 +242,17 @@ function encodeGeoFreq() {
   alert("✔ تم تحويل النص إلى صورة بنجاح!");
 }
 
-/* ===================== 9) حفظ الصورة ===================== */
+/* ===================== 8) حفظ الصورة ===================== */
 function saveImage() {
   const canvas = document.getElementById("geoCanvas");
   const url = canvas.toDataURL("image/png");
   const a = document.createElement("a");
   a.href = url;
-  a.download = "alm-geofreq-v6.1.png";
+  a.download = "alm-geofreq-v6.2.png";
   a.click();
 }
 
-/* ===================== 10) فك التشفير ===================== */
+/* ===================== 9) فك التشفير ===================== */
 function decodeGeoFreq() {
   const file = document.getElementById("imageInput").files[0];
   if (!file) return alert("اختر صورة.");
@@ -251,7 +270,7 @@ function decodeGeoFreq() {
     const size = canvas.width;
     const data = ctx.getImageData(0, 0, size, size).data;
 
-    // قراءة عدد البلوكات من أول 8 بكسلات
+    // قراءة عدد البلوكات
     let blockCount = 0n;
     for (let i = 0; i < 8; i++) {
       const r = data[(i * 4)];
