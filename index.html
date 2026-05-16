@@ -1,93 +1,350 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ALM GeoFreq v4.1 — 8‑Pixel Reversible Encoding + Protected Header</title>
 
 <style>
-body {
-  font-family: "Cairo", sans-serif;
-  background: #ffffff;
-  color: #222;
-  margin: 0;
-  padding: 0;
-}
-header {
-  background: #0BA37F;
-  color: white;
-  padding: 15px;
-  text-align: center;
-  font-size: 22px;
-  font-weight: bold;
-}
-.container {
-  padding: 20px;
-  max-width: 900px;
-  margin: auto;
-}
-button {
-  width: 100%;
-  padding: 14px;
-  margin-top: 10px;
-  background: #0BA37F;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 17px;
-  cursor: pointer;
-}
-button:hover { background: #0a8c6c; }
-textarea, input[type="file"], input[type="text"] {
-  width: 100%;
-  padding: 12px;
-  margin-top: 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-size: 16px;
-}
-#outputText {
-  margin-top: 15px;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  min-height: 120px;
-  white-space: pre-wrap;
-}
-#canvasWrapper { margin-top: 20px; text-align: center; }
+  :root{
+    --bg: #f7fafc;
+    --card: #ffffff;
+    --text: #0f172a;
+    --muted: #64748b;
+    --border: rgba(15, 23, 42, 0.10);
+    --shadow: 0 8px 30px rgba(2, 132, 199, 0.08);
+    --primary: #0ba37f;
+    --primary2: #0a8c6c;
+    --primarySoft: rgba(11, 163, 127, 0.12);
+    --danger: #e11d48;
+    --ok: #16a34a;
+    --radius: 16px;
+  }
+
+  * { box-sizing: border-box; }
+  body{
+    font-family: "Cairo", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", "Noto Sans", Arial, sans-serif;
+    margin: 0;
+    color: var(--text);
+    background: radial-gradient(1200px 600px at 20% 0%, rgba(11, 163, 127, 0.08), transparent 60%),
+                radial-gradient(800px 500px at 100% 10%, rgba(2, 132, 199, 0.10), transparent 55%),
+                var(--bg);
+  }
+
+  header{
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: linear-gradient(135deg, rgba(11, 163, 127, 0.95), rgba(2, 132, 199, 0.75));
+    color: #fff;
+    padding: 16px 12px;
+    text-align: center;
+    font-size: clamp(16px, 2.8vw, 22px);
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    box-shadow: 0 10px 30px rgba(2, 132, 199, 0.18);
+  }
+
+  .container{
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 18px 12px 28px;
+  }
+
+  .grid{
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  @media (min-width: 900px){
+    .grid{
+      grid-template-columns: 1.1fr 0.9fr;
+      align-items: start;
+    }
+  }
+
+  .card{
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+  }
+
+  .card h3, .card h4{
+    margin: 0 0 10px;
+    font-size: 16px;
+  }
+
+  .card h4{
+    margin-top: 16px;
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  label{
+    display: block;
+    margin-top: 10px;
+    color: var(--muted);
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  input[type="text"], textarea, input[type="file"]{
+    width: 100%;
+    padding: 12px 12px;
+    margin-top: 8px;
+    border: 1px solid rgba(15, 23, 42, 0.16);
+    border-radius: 12px;
+    font-size: 16px;
+    outline: none;
+    background: #fff;
+  }
+
+  textarea{
+    resize: vertical;
+    min-height: 118px;
+    line-height: 1.7;
+  }
+
+  input[type="text"]:focus, textarea:focus{
+    border-color: rgba(11, 163, 127, 0.65);
+    box-shadow: 0 0 0 4px var(--primarySoft);
+  }
+
+  .btn{
+    width: 100%;
+    padding: 12px 14px;
+    margin-top: 12px;
+    background: linear-gradient(180deg, var(--primary), var(--primary2));
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.08s ease, filter 0.15s ease;
+    box-shadow: 0 10px 20px rgba(11, 163, 127, 0.18);
+  }
+
+  .btn:hover{ filter: brightness(1.03); }
+  .btn:active{ transform: translateY(1px); }
+
+  .btn.secondary{
+    background: #ffffff;
+    color: var(--primary2);
+    border: 1px solid rgba(11, 163, 127, 0.35);
+    box-shadow: none;
+  }
+
+  .row{
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .row .btn{
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .divider{
+    height: 1px;
+    background: var(--border);
+    margin: 16px 0;
+  }
+
+  #canvasWrapper{
+    margin-top: 12px;
+  }
+
+  .canvasCard{
+    background: linear-gradient(180deg, rgba(11, 163, 127, 0.06), rgba(255,255,255,1));
+    border: 1px dashed rgba(11, 163, 127, 0.28);
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  /* عرض بصري متجاوب، بدون تغيير منطق 1024×1024 الداخلي */
+  #geoCanvas{
+    width: 100%;
+    height: auto;
+    max-height: 70vh;
+    display: block;
+    margin: 0 auto;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .output{
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(15, 23, 42, 0.14);
+    min-height: 120px;
+    white-space: pre-wrap;
+    background: #fff;
+    line-height: 1.8;
+  }
+
+  /* Toast */
+  .toastWrap{
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 999;
+  }
+  .toast{
+    pointer-events: auto;
+    width: min(720px, 100%);
+    background: rgba(15, 23, 42, 0.92);
+    color: #fff;
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.25);
+    transform: translateY(-10px);
+    opacity: 0;
+    transition: opacity .18s ease, transform .18s ease;
+  }
+  .toast.show{
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .toast .msg{
+    font-weight: 800;
+    font-size: 14px;
+    line-height: 1.5;
+    text-align: center;
+  }
+  .toast .tag{
+    font-size: 12px;
+    font-weight: 900;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+  .toast.success .tag{ background: rgba(22,163,74,0.25); border-color: rgba(22,163,74,0.35); }
+  .toast.danger .tag{ background: rgba(225,29,72,0.25); border-color: rgba(225,29,72,0.35); }
+
+  footer{
+    margin-top: 18px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 6px 0 0;
+  }
+
+  /* تقليل الحركة */
+  @media (prefers-reduced-motion: reduce){
+    .toast { transition: none; }
+    .btn { transition: none; }
+  }
 </style>
 </head>
 
 <body>
+  <div class="toastWrap">
+    <div id="toast" class="toast" role="status" aria-live="polite">
+      <div class="msg" id="toastMsg">—</div>
+      <div id="toastTag" class="tag">Info</div>
+    </div>
+  </div>
 
 <header>ALM GeoFreq v4.1 — 8‑Pixel Reversible Encoding + Protected Header</header>
 
 <div class="container">
 
-  <h3>مفتاح المستخدم (عدد صحيح كبير):</h3>
-  <input id="userKey" type="text" value="123456789">
+  <div class="grid">
+    <!-- Left: Encode -->
+    <div class="card">
+      <h3>تحويل النص إلى صورة نقاط</h3>
 
-  <h3>النص العربي:</h3>
-  <textarea id="inputText" rows="8" placeholder="اكتب نصًا عربيًا هنا..."></textarea>
+      <label for="userKey">مفتاح المستخدم (عدد صحيح كبير):</label>
+      <input id="userKey" type="text" value="123456789" inputmode="numeric" />
 
-  <button onclick="encodeGeoFreq()">تحويل النص إلى صورة نقاط</button>
+      <label for="inputText">النص العربي:</label>
+      <textarea id="inputText" rows="8" placeholder="اكتب نصًا عربيًا هنا..."></textarea>
 
-  <div id="canvasWrapper">
-    <canvas id="geoCanvas"></canvas>
-    <button onclick="saveImage()">💾 حفظ الصورة</button>
+      <button class="btn" onclick="encodeGeoFreq()">تحويل النص إلى صورة نقاط</button>
+
+      <div id="canvasWrapper">
+        <div class="canvasCard">
+          <div style="text-align:center; font-weight:800; color: var(--muted); margin-bottom:10px;">
+            المعاينة (سيتم استخدام نفس الصورة لحفظها/استعادتها)
+          </div>
+          <canvas id="geoCanvas"></canvas>
+          <div class="row" style="margin-top:12px;">
+            <button class="btn secondary" onclick="saveImage()" type="button">💾 حفظ الصورة</button>
+            <button class="btn secondary" onclick="clearOutput()" type="button">🧹 مسح النص المستعاد</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Decode -->
+    <div class="card">
+      <h3>استعادة النص من صورة</h3>
+
+      <h4>اختر ملف PNG مُصدّر سابقًا</h4>
+      <input type="file" id="imageInput" accept="image/png" />
+
+      <button class="btn" onclick="decodeGeoFreq()">استعادة النص</button>
+
+      <div class="divider"></div>
+
+      <h4>النص المستعاد:</h4>
+      <div id="outputText" class="output">(—)</div>
+    </div>
   </div>
 
-  <hr>
-
-  <h3>استعادة النص من صورة:</h3>
-  <input type="file" id="imageInput" accept="image/png">
-  <button onclick="decodeGeoFreq()">استعادة النص</button>
-
-  <h4>النص المستعاد:</h4>
-  <div id="outputText"></div>
-
+  <footer>
+    تم التطوير بواسطة <strong>رأفت عمر</strong>
+  </footer>
 </div>
 
 <script>
+/* ============================================================
+   Toast UI (replaces alert)
+============================================================ */
+let toastTimer = null;
+function showToast(message, type){
+  const toast = document.getElementById("toast");
+  const msg = document.getElementById("toastMsg");
+  const tag = document.getElementById("toastTag");
+
+  msg.textContent = message || "تمت العملية";
+  toast.classList.remove("success","danger");
+  if(type === "success"){
+    toast.classList.add("success");
+    tag.textContent = "Success";
+  } else if(type === "danger"){
+    toast.classList.add("danger");
+    tag.textContent = "Error";
+  } else {
+    tag.textContent = "Info";
+  }
+
+  toast.classList.add("show");
+
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 2200);
+}
+
+function clearOutput(){
+  document.getElementById("outputText").textContent = "(—)";
+}
+
 /* ============================================================
    Arabic Normalization
 ============================================================ */
@@ -168,59 +425,68 @@ function codeToWord(Cbig){
    Encode Text → Image (8 pixels per block)
 ============================================================ */
 function encodeGeoFreq() {
-  const key = BigInt(document.getElementById("userKey").value || "0");
-  let text = normalizeArabic(document.getElementById("inputText").value.trim());
-  if (!text) return alert("الرجاء إدخال نص.");
+  try{
+    const keyStr = document.getElementById("userKey").value || "0";
+    const key = BigInt(keyStr);
 
-  const words = text.split(/\s+/);
-  const blocks = [];
-
-  for (const w of words) {
-    for (const b of splitWord(w)) {
-      blocks.push(b);
+    let text = normalizeArabic(document.getElementById("inputText").value.trim());
+    if (!text) {
+      showToast("الرجاء إدخال نص.", "danger");
+      return;
     }
-  }
 
-  const size = 1024;
-  const HEADER_PIXELS = 4096; // منطقة رأس محمية
-  const maxPixels = size * size;
-  const neededPixels = HEADER_PIXELS + blocks.length * 8;
+    const words = text.split(/\s+/);
+    const blocks = [];
 
-  if (neededPixels > maxPixels) {
-    alert("النص طويل جدًا لصورة واحدة 1024×1024.");
-    return;
-  }
-
-  const canvas = document.getElementById("geoCanvas");
-  canvas.width = size;
-  canvas.height = size;
-
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "white";
-  ctx.fillRect(0, 0, size, size);
-
-  blocks.forEach((block, blockIndex) => {
-    const C  = wordToCode(block);
-    const C2 = C ^ key;
-
-    for (let byteIndex = 0; byteIndex < 8; byteIndex++) {
-      const byteVal = Number((C2 >> BigInt(8 * byteIndex)) & 0xFFn);
-
-      const p = HEADER_PIXELS + blockIndex * 8 + byteIndex;
-      const x = p % size;
-      const y = Math.floor(p / size);
-
-      const gray = 255 - byteVal;
-      const imgData = ctx.createImageData(1,1);
-      imgData.data[0] = gray;
-      imgData.data[1] = gray;
-      imgData.data[2] = gray;
-      imgData.data[3] = 255;
-      ctx.putImageData(imgData, x, y);
+    for (const w of words) {
+      for (const b of splitWord(w)) {
+        blocks.push(b);
+      }
     }
-  });
 
-  alert("✔ تم تحويل النص إلى صورة نقاط (8 نقاط لكل بلوك) بنجاح!");
+    const size = 1024;
+    const HEADER_PIXELS = 4096; // منطقة رأس محمية
+    const maxPixels = size * size;
+    const neededPixels = HEADER_PIXELS + blocks.length * 8;
+
+    if (neededPixels > maxPixels) {
+      showToast("النص طويل جدًا لصورة واحدة 1024×1024.", "danger");
+      return;
+    }
+
+    const canvas = document.getElementById("geoCanvas");
+    canvas.width = size;
+    canvas.height = size;
+
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, size, size);
+
+    blocks.forEach((block, blockIndex) => {
+      const C  = wordToCode(block);
+      const C2 = C ^ key;
+
+      for (let byteIndex = 0; byteIndex < 8; byteIndex++) {
+        const byteVal = Number((C2 >> BigInt(8 * byteIndex)) & 0xFFn);
+
+        const p = HEADER_PIXELS + blockIndex * 8 + byteIndex;
+        const x = p % size;
+        const y = Math.floor(p / size);
+
+        const gray = 255 - byteVal;
+        const imgData = ctx.createImageData(1,1);
+        imgData.data[0] = gray;
+        imgData.data[1] = gray;
+        imgData.data[2] = gray;
+        imgData.data[3] = 255;
+        ctx.putImageData(imgData, x, y);
+      }
+    });
+
+    showToast("تم تحويل النص إلى صورة نقاط بنجاح ✅", "success");
+  }catch(e){
+    showToast(e && e.message ? e.message : "حدث خطأ أثناء التحويل.", "danger");
+  }
 }
 
 /* ============================================================
@@ -228,6 +494,10 @@ function encodeGeoFreq() {
 ============================================================ */
 function saveImage() {
   const canvas = document.getElementById("geoCanvas");
+  if(!canvas || canvas.width === 0 || canvas.height === 0){
+    showToast("لا توجد صورة جاهزة للحفظ.", "danger");
+    return;
+  }
   const url = canvas.toDataURL("image/png");
   const a = document.createElement("a");
   a.href = url;
@@ -240,68 +510,76 @@ function saveImage() {
 ============================================================ */
 function decodeGeoFreq() {
   const file = document.getElementById("imageInput").files[0];
-  if (!file) return alert("اختر صورة.");
+  if (!file) {
+    showToast("اختر صورة PNG.", "danger");
+    return;
+  }
 
-  const key = BigInt(document.getElementById("userKey").value || "0");
+  try{
+    const key = BigInt(document.getElementById("userKey").value || "0");
 
-  const img = new Image();
-  img.onload = () => {
-    const canvas = document.getElementById("geoCanvas");
-    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.getElementById("geoCanvas");
+      const ctx = canvas.getContext("2d");
 
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
 
-    const size = canvas.width;
-    const HEADER_PIXELS = 4096;
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      const size = canvas.width;
+      const HEADER_PIXELS = 4096;
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 
-    const totalPixels = size * size;
-    const blocksBytes = [];
+      const totalPixels = size * size;
+      const blocksBytes = [];
 
-    for (let p = HEADER_PIXELS; p < totalPixels; p++) {
-      const x = p % size;
-      const y = Math.floor(p / size);
-      const i = (y * size + x) * 4;
+      for (let p = HEADER_PIXELS; p < totalPixels; p++) {
+        const x = p % size;
+        const y = Math.floor(p / size);
+        const i = (y * size + x) * 4;
 
-      const r = data[i];
-      if (r === 255) continue;
+        const r = data[i];
+        if (r === 255) continue;
 
-      const gray = r;
-      const byteVal = 255 - gray;
+        const gray = r;
+        const byteVal = 255 - gray;
 
-      const blockIndex = Math.floor((p - HEADER_PIXELS) / 8);
-      const byteIndex  = (p - HEADER_PIXELS) % 8;
+        const blockIndex = Math.floor((p - HEADER_PIXELS) / 8);
+        const byteIndex  = (p - HEADER_PIXELS) % 8;
 
-      if (!blocksBytes[blockIndex]) {
-        blocksBytes[blockIndex] = new Array(8).fill(0);
-      }
-      blocksBytes[blockIndex][byteIndex] = byteVal;
-    }
-
-    const blocks = [];
-
-    for (let blockIndex = 0; blockIndex < blocksBytes.length; blockIndex++) {
-      const bytes = blocksBytes[blockIndex];
-      if (!bytes) continue;
-
-      let C2 = 0n;
-      for (let byteIndex = 0; byteIndex < 8; byteIndex++) {
-        const b = BigInt(bytes[byteIndex] || 0);
-        C2 |= (b << BigInt(8 * byteIndex));
+        if (!blocksBytes[blockIndex]) {
+          blocksBytes[blockIndex] = new Array(8).fill(0);
+        }
+        blocksBytes[blockIndex][byteIndex] = byteVal;
       }
 
-      const C = C2 ^ key;
-      const block = codeToWord(C);
-      blocks.push(block);
-    }
+      const blocks = [];
 
-    const text = blocks.join(" ");
-    document.getElementById("outputText").textContent = text || "(لا توجد بيانات)";
-  };
+      for (let blockIndex = 0; blockIndex < blocksBytes.length; blockIndex++) {
+        const bytes = blocksBytes[blockIndex];
+        if (!bytes) continue;
 
-  img.src = URL.createObjectURL(file);
+        let C2 = 0n;
+        for (let byteIndex = 0; byteIndex < 8; byteIndex++) {
+          const b = BigInt(bytes[byteIndex] || 0);
+          C2 |= (b << BigInt(8 * byteIndex));
+        }
+
+        const C = C2 ^ key;
+        const block = codeToWord(C);
+        blocks.push(block);
+      }
+
+      const text = blocks.join(" ");
+      document.getElementById("outputText").textContent = text || "(لا توجد بيانات)";
+      showToast("تمت الاستعادة بنجاح ✅", "success");
+    };
+
+    img.src = URL.createObjectURL(file);
+  }catch(e){
+    showToast(e && e.message ? e.message : "حدث خطأ أثناء الاستعادة.", "danger");
+  }
 }
 </script>
 
