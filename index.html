@@ -1,0 +1,79 @@
+<!-- FILE: /index.html -->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>ALM GeoFreq</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0BA37F">
+<style>
+body{font-family:"Cairo",sans-serif;margin:0;background:#fff;color:#222}
+header{background:#0BA37F;color:#fff;padding:15px;text-align:center;font-size:22px;font-weight:bold}
+.container{padding:20px;max-width:900px;margin:auto}
+button{width:100%;padding:14px;margin-top:10px;background:#0BA37F;color:#fff;border:0;border-radius:8px;font-size:17px;cursor:pointer}
+textarea,input{width:100%;padding:12px;margin-top:10px}
+#output{margin-top:15px;padding:10px;border:1px solid #ccc;min-height:120px;white-space:pre-wrap}
+</style>
+</head>
+
+<body>
+
+<header>ALM GeoFreq</header>
+
+<div class="container">
+
+<input id="key" value="123456789">
+<textarea id="text" rows="6"></textarea>
+<button onclick="runEnc()">تحويل إلى صورة</button>
+
+<canvas id="cv"></canvas>
+<button onclick="saveImg()">💾 حفظ الصورة</button>
+
+<hr>
+
+<input type="file" id="imgIn" accept="image/png">
+<button onclick="runDec()">استعادة النص</button>
+
+<div id="output"></div>
+
+</div>
+
+<script type="module">
+import {uiEncode,uiDecode} from "./app/ui.js";
+
+const cv=document.getElementById("cv");
+
+window.runEnc=()=>{
+  const t=document.getElementById("text").value;
+  const k=BigInt(document.getElementById("key").value||0);
+  uiEncode(t,k,cv);
+};
+
+window.saveImg=()=>{
+  const a=document.createElement("a");
+  a.href=cv.toDataURL("image/png");
+  a.download="alm.png";
+  a.click();
+};
+
+window.runDec=()=>{
+  const f=document.getElementById("imgIn").files[0];
+  if(!f) return;
+  const k=BigInt(document.getElementById("key").value||0);
+  const img=new Image();
+  img.onload=()=>{
+    cv.width=img.width; cv.height=img.height;
+    cv.getContext("2d").drawImage(img,0,0);
+    const r=uiDecode(k,cv);
+    document.getElementById("output").innerText=r.text;
+  };
+  img.src=URL.createObjectURL(f);
+};
+
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("./service-worker.js");
+}
+</script>
+
+</body>
+</html>
