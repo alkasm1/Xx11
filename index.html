@@ -1,4 +1,3 @@
-<!-- FILE: /index.html -->
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -15,39 +14,103 @@
   --bg2:#eaf7ff;
   --text:#0f172a;
   --muted:#5b6b86;
-  --editor-bg:#0b1220;
-  --editor-text:#e9f2ff;
-  --editor-border:rgba(255,255,255,0.14);
-  --radius:14px;
+  --card:#ffffffcc;
+  --border:rgba(15,23,42,0.12);
+  --shadow:0 14px 40px rgba(2,32,71,0.12);
+  --radius:16px;
+
+  /* ألوان الإدخال والإخراج (داكن + بيج كما طلبت) */
+  --editor-bg:#1a1a17;
+  --editor-text:#f5f2e9;
+  --editor-border:rgba(255,255,255,0.12);
 }
 
 *{box-sizing:border-box}
 body{
   margin:0;
   font-family:"Cairo",sans-serif;
-  background:linear-gradient(180deg,var(--bg1),var(--bg2));
   color:var(--text);
+  background:
+    radial-gradient(900px 420px at 85% 0%, rgba(11,163,127,0.18), transparent 55%),
+    radial-gradient(650px 360px at 0% 20%, rgba(12,120,255,0.14), transparent 50%),
+    linear-gradient(180deg,var(--bg1),var(--bg2));
 }
 
 header{
-  background:rgba(255,255,255,0.7);
+  position:sticky;
+  top:0;
+  background:rgba(245,251,255,0.75);
   backdrop-filter:blur(10px);
-  border-bottom:1px solid rgba(0,0,0,0.1);
-  padding:16px;
-  text-align:center;
+  border-bottom:1px solid rgba(15,23,42,0.10);
+}
+
+.header-inner{
+  max-width:980px;
+  margin:auto;
+  padding:16px 18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.logo{
+  width:42px;
+  height:42px;
+  border-radius:12px;
+  background:linear-gradient(135deg,rgba(11,163,127,0.95),rgba(12,120,255,0.65));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:white;
   font-weight:900;
-  font-size:20px;
+}
+
+.brand h1{
+  margin:0;
+  font-size:18px;
+  font-weight:900;
+}
+
+.brand p{
+  margin:0;
+  font-size:12px;
+  color:var(--muted);
+}
+
+.badge{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:999px;
+  background:rgba(255,255,255,0.7);
+  border:1px solid rgba(15,23,42,0.12);
+  font-size:12px;
+  color:var(--muted);
+}
+
+.dot{
+  width:9px;
+  height:9px;
+  border-radius:50%;
+  background:var(--brand);
 }
 
 .container{
-  max-width:960px;
+  max-width:980px;
   margin:auto;
-  padding:20px;
+  padding:22px 18px 40px;
 }
 
 .grid{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:1.05fr 0.95fr;
   gap:16px;
 }
 @media(max-width:900px){
@@ -55,28 +118,45 @@ header{
 }
 
 .card{
-  background:#fff;
+  background:var(--card);
+  border:1px solid var(--border);
   border-radius:var(--radius);
-  border:1px solid rgba(0,0,0,0.1);
-  padding:18px;
+  box-shadow:var(--shadow);
+}
+
+.card-header{
+  padding:14px 16px;
+  border-bottom:1px solid rgba(15,23,42,0.10);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.card-header h2{
+  margin:0;
+  font-size:14px;
+  font-weight:900;
+}
+
+.card-body{
+  padding:16px;
 }
 
 label{
+  display:block;
   font-size:12px;
   color:var(--muted);
+  margin-bottom:8px;
   font-weight:800;
-  margin-bottom:6px;
-  display:block;
 }
 
 input[type="text"],textarea,input[type="file"]{
   width:100%;
   background:var(--editor-bg);
-  color:var(--editor-text);
   border:1px solid var(--editor-border);
-  border-radius:var(--radius);
+  color:var(--editor-text);
+  border-radius:12px;
   padding:12px;
-  outline:none;
 }
 
 textarea{
@@ -86,66 +166,102 @@ textarea{
 
 button{
   width:100%;
-  padding:12px;
+  padding:12px 14px;
   border:0;
-  border-radius:var(--radius);
-  background:var(--brand);
-  color:#fff;
+  border-radius:12px;
+  background:linear-gradient(135deg,var(--brand),rgba(12,120,255,0.75));
+  color:white;
   font-weight:900;
   cursor:pointer;
   margin-top:10px;
 }
 
+.btn-secondary{
+  background:rgba(15,23,42,0.04);
+  border:1px solid rgba(15,23,42,0.14);
+  color:var(--text);
+}
+
 canvas{
   width:100%;
-  border-radius:var(--radius);
-  border:1px dashed rgba(0,0,0,0.2);
+  border-radius:14px;
+  border:1px dashed rgba(15,23,42,0.22);
   background:#fff;
   aspect-ratio:16/10;
 }
 
 .output{
-  background:var(--editor-bg);
-  color:var(--editor-text);
-  border:1px solid var(--editor-border);
-  border-radius:var(--radius);
+  margin-top:8px;
   padding:12px;
+  border-radius:14px;
+  background:var(--editor-bg);
+  border:1px solid var(--editor-border);
+  color:var(--editor-text);
   min-height:120px;
   white-space:pre-wrap;
-  margin-top:10px;
+  line-height:1.7;
 }
 </style>
 </head>
 
 <body>
 
-<header>ALM GeoFreq</header>
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <div class="logo">G</div>
+      <div>
+        <h1>ALM GeoFreq</h1>
+        <p>تحويل • حفظ • استعادة</p>
+      </div>
+    </div>
+
+    <div class="badge">
+      <span class="dot"></span>
+      المطور: <strong style="color:var(--text)">رأفت عمر</strong>
+    </div>
+  </div>
+</header>
 
 <div class="container">
   <div class="grid">
 
-    <div class="card">
-      <label>المفتاح</label>
-      <input id="key" type="text" value="123456789">
+    <section class="card">
+      <div class="card-header">
+        <h2>تحويل النص إلى صورة</h2>
+        <span>Encoder</span>
+      </div>
 
-      <label>النص</label>
-      <textarea id="text"></textarea>
+      <div class="card-body">
+        <label>المفتاح</label>
+        <input id="key" type="text" value="123456789">
 
-      <button onclick="runEnc()">تحويل إلى صورة</button>
-    </div>
+        <label>النص</label>
+        <textarea id="text"></textarea>
 
-    <div class="card">
-      <canvas id="cv"></canvas>
+        <button onclick="runEnc()">تحويل إلى صورة</button>
+      </div>
+    </section>
 
-      <button onclick="saveImg()">حفظ الصورة</button>
+    <section class="card">
+      <div class="card-header">
+        <h2>المعاينة & الاستعادة</h2>
+        <span>Preview / Decoder</span>
+      </div>
 
-      <label>اختر صورة</label>
-      <input type="file" id="imgIn" accept="image/png">
+      <div class="card-body">
+        <canvas id="cv"></canvas>
 
-      <button onclick="runDec()">استعادة النص</button>
+        <button class="btn-secondary" onclick="saveImg()">حفظ الصورة</button>
 
-      <div id="output" class="output"></div>
-    </div>
+        <label>اختر صورة</label>
+        <input type="file" id="imgIn" accept="image/png">
+
+        <button class="btn-secondary" onclick="runDec()">استعادة النص</button>
+
+        <div id="output" class="output"></div>
+      </div>
+    </section>
 
   </div>
 </div>
