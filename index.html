@@ -3,16 +3,117 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ALM GeoFreq</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0BA37F">
+
 <style>
-body{font-family:"Cairo",sans-serif;margin:0;background:#fff;color:#222}
-header{background:#0BA37F;color:#fff;padding:15px;text-align:center;font-size:22px;font-weight:bold}
-.container{padding:20px;max-width:900px;margin:auto}
-button{width:100%;padding:14px;margin-top:10px;background:#0BA37F;color:#fff;border:0;border-radius:8px;font-size:17px;cursor:pointer}
-textarea,input{width:100%;padding:12px;margin-top:10px}
-#output{margin-top:15px;padding:10px;border:1px solid #ccc;min-height:120px;white-space:pre-wrap}
+:root{
+  --brand:#0BA37F;
+  --bg1:#f5fbff;
+  --bg2:#eaf7ff;
+  --text:#0f172a;
+  --muted:#5b6b86;
+  --editor-bg:#0b1220;
+  --editor-text:#e9f2ff;
+  --editor-border:rgba(255,255,255,0.14);
+  --radius:14px;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:"Cairo",sans-serif;
+  background:linear-gradient(180deg,var(--bg1),var(--bg2));
+  color:var(--text);
+}
+
+header{
+  background:rgba(255,255,255,0.7);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid rgba(0,0,0,0.1);
+  padding:16px;
+  text-align:center;
+  font-weight:900;
+  font-size:20px;
+}
+
+.container{
+  max-width:960px;
+  margin:auto;
+  padding:20px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+}
+@media(max-width:900px){
+  .grid{grid-template-columns:1fr}
+}
+
+.card{
+  background:#fff;
+  border-radius:var(--radius);
+  border:1px solid rgba(0,0,0,0.1);
+  padding:18px;
+}
+
+label{
+  font-size:12px;
+  color:var(--muted);
+  font-weight:800;
+  margin-bottom:6px;
+  display:block;
+}
+
+input[type="text"],textarea,input[type="file"]{
+  width:100%;
+  background:var(--editor-bg);
+  color:var(--editor-text);
+  border:1px solid var(--editor-border);
+  border-radius:var(--radius);
+  padding:12px;
+  outline:none;
+}
+
+textarea{
+  min-height:120px;
+  resize:vertical;
+}
+
+button{
+  width:100%;
+  padding:12px;
+  border:0;
+  border-radius:var(--radius);
+  background:var(--brand);
+  color:#fff;
+  font-weight:900;
+  cursor:pointer;
+  margin-top:10px;
+}
+
+canvas{
+  width:100%;
+  border-radius:var(--radius);
+  border:1px dashed rgba(0,0,0,0.2);
+  background:#fff;
+  aspect-ratio:16/10;
+}
+
+.output{
+  background:var(--editor-bg);
+  color:var(--editor-text);
+  border:1px solid var(--editor-border);
+  border-radius:var(--radius);
+  padding:12px;
+  min-height:120px;
+  white-space:pre-wrap;
+  margin-top:10px;
+}
 </style>
 </head>
 
@@ -21,21 +122,32 @@ textarea,input{width:100%;padding:12px;margin-top:10px}
 <header>ALM GeoFreq</header>
 
 <div class="container">
+  <div class="grid">
 
-<input id="key" value="123456789">
-<textarea id="text" rows="6"></textarea>
-<button onclick="runEnc()">تحويل إلى صورة</button>
+    <div class="card">
+      <label>المفتاح</label>
+      <input id="key" type="text" value="123456789">
 
-<canvas id="cv"></canvas>
-<button onclick="saveImg()">💾 حفظ الصورة</button>
+      <label>النص</label>
+      <textarea id="text"></textarea>
 
-<hr>
+      <button onclick="runEnc()">تحويل إلى صورة</button>
+    </div>
 
-<input type="file" id="imgIn" accept="image/png">
-<button onclick="runDec()">استعادة النص</button>
+    <div class="card">
+      <canvas id="cv"></canvas>
 
-<div id="output"></div>
+      <button onclick="saveImg()">حفظ الصورة</button>
 
+      <label>اختر صورة</label>
+      <input type="file" id="imgIn" accept="image/png">
+
+      <button onclick="runDec()">استعادة النص</button>
+
+      <div id="output" class="output"></div>
+    </div>
+
+  </div>
 </div>
 
 <script type="module">
@@ -62,7 +174,8 @@ window.runDec=()=>{
   const k=BigInt(document.getElementById("key").value||0);
   const img=new Image();
   img.onload=()=>{
-    cv.width=img.width; cv.height=img.height;
+    cv.width=img.width;
+    cv.height=img.height;
     cv.getContext("2d").drawImage(img,0,0);
     const r=uiDecode(k,cv);
     document.getElementById("output").innerText=r.text;
